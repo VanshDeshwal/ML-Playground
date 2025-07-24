@@ -1,0 +1,50 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environment
+venv/
+.env/
+env/
+*.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE settings
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln
+*.sw?
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+
+# Docker
+docker-compose.override.yml
+
+# Streamlit
+.streamlit/
+
+# Data files (if you regenerate via script)
+# Comment out if you prefer to track dummy CSVs
+backend/data/*.csv
+
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
