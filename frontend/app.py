@@ -6,6 +6,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import json
+from datetime import datetime
+import time
 
 # Configure page
 st.set_page_config(
@@ -14,6 +16,253 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+def load_css():
+    """Load custom CSS for modern design"""
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    .main {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2.5rem;
+        border-radius: 15px;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+    
+    .main-header h1 {
+        font-size: 3rem;
+        font-weight: 700;
+        margin: 0;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .main-header p {
+        font-size: 1.2rem;
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+    }
+    
+    .algorithm-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border-left: 4px solid #667eea;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+        border: 1px solid #f0f0f0;
+    }
+    
+    .algorithm-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    }
+    
+    .algorithm-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metric-card {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid #e9ecef;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #667eea;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+    }
+    
+    .comparison-better {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        border-color: #c3e6cb;
+        color: #155724;
+        font-weight: 600;
+    }
+    
+    .comparison-worse {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        border-color: #f5c6cb;
+        color: #721c24;
+        font-weight: 600;
+    }
+    
+    .section-header {
+        background: linear-gradient(90deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        border-left: 4px solid #667eea;
+        margin: 1.5rem 0 1rem 0;
+    }
+    
+    .section-header h3 {
+        margin: 0;
+        color: #495057;
+        font-weight: 600;
+    }
+    
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .status-success {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-warning {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-error {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .nav-pill {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 25px;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem;
+        display: inline-block;
+        transition: all 0.3s ease;
+    }
+    
+    .nav-pill:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-1px);
+    }
+    
+    .experiment-row {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        border: 1px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    
+    .experiment-row:hover {
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border-color: #667eea;
+    }
+    
+    .progress-bar {
+        background: #e9ecef;
+        border-radius: 10px;
+        height: 8px;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+    
+    .feature-highlight {
+        background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+        border: 2px solid #667eea;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        position: relative;
+    }
+    
+    .feature-highlight::before {
+        content: "✨";
+        position: absolute;
+        top: -10px;
+        left: 20px;
+        background: white;
+        padding: 0 10px;
+        font-size: 1.2rem;
+    }
+    
+    .sidebar .sidebar-content {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Custom button styles */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Custom selectbox styles */
+    .stSelectbox > div > div {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+    }
+    
+    .stSelectbox > div > div:focus-within {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    /* Custom tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        border: 1px solid #dee2e6;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # API Configuration
 API_BASE_URL = "http://localhost:8000"
