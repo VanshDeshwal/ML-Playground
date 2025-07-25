@@ -35,6 +35,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Health check endpoint for Docker
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for container monitoring"""
+    return {"status": "healthy", "message": "ML Playground API is running"}
+
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint with API information"""
+    return {
+        "message": "Welcome to ML Playground API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
 # Pydantic models for API
 class AlgorithmInfo(BaseModel):
     id: str

@@ -1,0 +1,86 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "containerGroupName": {
+            "type": "string",
+            "defaultValue": "ml-playground-api",
+            "metadata": {
+                "description": "Name for the container group"
+            }
+        },
+        "containerImage": {
+            "type": "string",
+            "metadata": {
+                "description": "Container image to deploy (e.g., your-registry.azurecr.io/ml-playground-api:latest)"
+            }
+        },
+        "dnsNameLabel": {
+            "type": "string",
+            "metadata": {
+                "description": "DNS name label for the public IP"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for all resources"
+            }
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2021-09-01",
+            "name": "[parameters('containerGroupName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "containers": [
+                    {
+                        "name": "ml-playground-api",
+                        "properties": {
+                            "image": "[parameters('containerImage')]",
+                            "ports": [
+                                {
+                                    "port": 8000,
+                                    "protocol": "TCP"
+                                }
+                            ],
+                            "environmentVariables": [],
+                            "resources": {
+                                "requests": {
+                                    "cpu": 1,
+                                    "memoryInGB": 2
+                                }
+                            }
+                        }
+                    }
+                ],
+                "osType": "Linux",
+                "restartPolicy": "Always",
+                "ipAddress": {
+                    "type": "Public",
+                    "ports": [
+                        {
+                            "port": 8000,
+                            "protocol": "TCP"
+                        }
+                    ],
+                    "dnsNameLabel": "[parameters('dnsNameLabel')]"
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "containerIPv4Address": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.ContainerInstance/containerGroups/', parameters('containerGroupName'))).ipAddress.ip]"
+        },
+        "containerFQDN": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.ContainerInstance/containerGroups/', parameters('containerGroupName'))).ipAddress.fqdn]"
+        }
+    }
+}

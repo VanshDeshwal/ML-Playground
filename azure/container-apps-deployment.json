@@ -1,0 +1,194 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "environmentName": {
+            "type": "string",
+            "defaultValue": "ml-playground-env",
+            "metadata": {
+                "description": "Name of the Container Apps environment"
+            }
+        },
+        "apiAppName": {
+            "type": "string",
+            "defaultValue": "ml-playground-api",
+            "metadata": {
+                "description": "Name of the API container app"
+            }
+        },
+        "frontendAppName": {
+            "type": "string",
+            "defaultValue": "ml-playground-frontend",
+            "metadata": {
+                "description": "Name of the frontend container app"
+            }
+        },
+        "apiImage": {
+            "type": "string",
+            "metadata": {
+                "description": "API container image"
+            }
+        },
+        "frontendImage": {
+            "type": "string",
+            "metadata": {
+                "description": "Frontend container image"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for all resources"
+            }
+        }
+    },
+    "variables": {
+        "logAnalyticsName": "[concat('logs-', parameters('environmentName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.OperationalInsights/workspaces",
+            "apiVersion": "2021-06-01",
+            "name": "[variables('logAnalyticsName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "sku": {
+                    "name": "PerGB2018"
+                },
+                "retentionInDays": 30
+            }
+        },
+        {
+            "type": "Microsoft.App/managedEnvironments",
+            "apiVersion": "2022-03-01",
+            "name": "[parameters('environmentName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+            ],
+            "properties": {
+                "appLogsConfiguration": {
+                    "destination": "log-analytics",
+                    "logAnalyticsConfiguration": {
+                        "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))).customerId]",
+                        "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName')), '2021-06-01').primarySharedKey]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.App/containerApps",
+            "apiVersion": "2022-03-01",
+            "name": "[parameters('apiAppName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', parameters('environmentName'))]"
+            ],
+            "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('environmentName'))]",
+                "configuration": {
+                    "ingress": {
+                        "external": true,
+                        "targetPort": 8000,
+                        "allowInsecure": true
+                    },
+                    "dapr": {
+                        "enabled": false
+                    }
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "image": "[parameters('apiImage')]",
+                            "name": "ml-playground-api",
+                            "resources": {
+                                "cpu": 0.25,
+                                "memory": "0.5Gi"
+                            }
+                        }
+                    ],
+                    "scale": {
+                        "minReplicas": 0,
+                        "maxReplicas": 2,
+                        "rules": [
+                            {
+                                "name": "http-scaling",
+                                "http": {
+                                    "metadata": {
+                                        "concurrentRequests": "10"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.App/containerApps",
+            "apiVersion": "2022-03-01",
+            "name": "[parameters('frontendAppName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', parameters('environmentName'))]",
+                "[resourceId('Microsoft.App/containerApps', parameters('apiAppName'))]"
+            ],
+            "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('environmentName'))]",
+                "configuration": {
+                    "ingress": {
+                        "external": true,
+                        "targetPort": 8501,
+                        "allowInsecure": true
+                    },
+                    "dapr": {
+                        "enabled": false
+                    }
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "image": "[parameters('frontendImage')]",
+                            "name": "ml-playground-frontend",
+                            "env": [
+                                {
+                                    "name": "API_BASE_URL",
+                                    "value": "[concat('https://', reference(resourceId('Microsoft.App/containerApps', parameters('apiAppName'))).configuration.ingress.fqdn)]"
+                                }
+                            ],
+                            "resources": {
+                                "cpu": 0.25,
+                                "memory": "0.5Gi"
+                            }
+                        }
+                    ],
+                    "scale": {
+                        "minReplicas": 0,
+                        "maxReplicas": 2,
+                        "rules": [
+                            {
+                                "name": "http-scaling",
+                                "http": {
+                                    "metadata": {
+                                        "concurrentRequests": "10"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "apiUrl": {
+            "type": "string",
+            "value": "[concat('https://', reference(resourceId('Microsoft.App/containerApps', parameters('apiAppName'))).configuration.ingress.fqdn)]"
+        },
+        "frontendUrl": {
+            "type": "string",
+            "value": "[concat('https://', reference(resourceId('Microsoft.App/containerApps', parameters('frontendAppName'))).configuration.ingress.fqdn)]"
+        }
+    }
+}

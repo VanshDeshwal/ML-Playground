@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
 """
-Simple startup script for ML Playground
-Starts both FastAPI backend and Streamlit frontend
+🤖 ML Playground - Interactive Machine Learning Platform
+
+This script launches both the FastAPI backend and Streamlit frontend
+for the ML Playground application with enhanced UI and features.
+
+Usage:
+    python run.py
+
+New Features:
+- 🎨 Modern, responsive UI design
+- 🏠 Enhanced home page with algorithm gallery
+- 📊 Dashboard with experiment tracking
+- 📈 Comparison Lab for side-by-side analysis  
+- 📚 Interactive documentation
+- 🔍 Built-in clustering dataset support
 """
 
 import subprocess
@@ -11,8 +24,22 @@ import os
 import webbrowser
 from pathlib import Path
 
+def print_banner():
+    """Print a beautiful banner"""
+    print("""
+    ╔══════════════════════════════════════════════════════════════╗
+    ║                    🤖 ML Playground                          ║
+    ║                                                              ║
+    ║           Interactive Machine Learning Platform              ║
+    ║                                                              ║
+    ║   🔬 Algorithm Explorer  📊 Dashboard  📈 Comparison Lab    ║
+    ║                                                              ║
+    ╚══════════════════════════════════════════════════════════════╝
+    """)
+
 def check_dependencies():
     """Check if required packages are installed"""
+    print("🔍 Checking dependencies...")
     try:
         import fastapi
         import streamlit
@@ -26,7 +53,7 @@ def check_dependencies():
         return True
     except ImportError as e:
         print(f"❌ Missing dependency: {e}")
-        print("Please run: pip install -r requirements.txt")
+        print("💡 Please run: pip install -r requirements.txt")
         return False
 
 def start_backend():
@@ -61,12 +88,13 @@ def wait_for_server(url, timeout=30):
 
 def main():
     """Main function to start the ML Playground"""
-    print("🤖 Starting ML Playground...")
-    print("=" * 50)
+    print_banner()
     
     # Check dependencies
     if not check_dependencies():
         sys.exit(1)
+    
+    print("\n🎯 Starting ML Playground...")
     
     # Start backend
     print("🚀 Starting FastAPI backend...")
@@ -94,6 +122,33 @@ def main():
         backend_process.terminate()
         frontend_process.terminate()
         sys.exit(1)
+    
+    print("""
+    🎉 ML Playground is now running with enhanced UI!
+    
+    📡 Backend API: http://localhost:8000
+    🎨 Frontend UI: http://localhost:8501
+    
+    ✨ New Features:
+    • Modern, responsive design with beautiful cards and animations
+    • Enhanced home page with algorithm gallery
+    • Dashboard with experiment tracking and performance analytics
+    • Comparison Lab for side-by-side algorithm analysis
+    • Interactive documentation with learning resources
+    • Built-in clustering dataset support
+    
+    🔗 Opening frontend in your browser...
+    
+    ⏹️  Press Ctrl+C to stop both servers
+    """)
+    
+    # Open browser
+    try:
+        webbrowser.open('http://localhost:8501')
+        print("🌐 Browser opened successfully")
+    except Exception as e:
+        print(f"⚠️  Could not open browser automatically: {e}")
+        print("💡 Please manually open: http://localhost:8501")
     
     print("=" * 50)
     print("🎉 ML Playground is now running!")

@@ -1,0 +1,105 @@
+name: Deploy ML Playground to Azure
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  RESOURCE_GROUP: ml-playground-rg
+  REGISTRY_NAME: mlplaygroundregistry
+  API_IMAGE_NAME: ml-playground-api
+  FRONTEND_IMAGE_NAME: ml-playground-frontend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🛒 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔑 Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: 📦 Create Resource Group
+      run: |
+        az group create --name $RESOURCE_GROUP --location eastus
+
+    - name: 🐳 Create Container Registry
+      run: |
+        if ! az acr show --name $REGISTRY_NAME --resource-group $RESOURCE_GROUP >/dev/null 2>&1; then
+          az acr create --resource-group $RESOURCE_GROUP --name $REGISTRY_NAME --sku Basic --admin-enabled true
+        fi
+
+    - name: 🔨 Build and Push API Image
+      run: |
+        cd backend
+        az acr build --registry $REGISTRY_NAME --image $API_IMAGE_NAME:${{ github.sha }} .
+        az acr build --registry $REGISTRY_NAME --image $API_IMAGE_NAME:latest .
+
+    - name: 🎨 Build and Push Frontend Image
+      run: |
+        cd frontend
+        az acr build --registry $REGISTRY_NAME --image $FRONTEND_IMAGE_NAME:${{ github.sha }} .
+        az acr build --registry $REGISTRY_NAME --image $FRONTEND_IMAGE_NAME:latest .
+
+    - name: 🚀 Deploy API Container
+      if: github.ref == 'refs/heads/main'
+      run: |
+        ACR_LOGIN_SERVER=$(az acr show --name $REGISTRY_NAME --resource-group $RESOURCE_GROUP --query "loginServer" --output tsv)
+        API_DNS_LABEL="ml-playground-api-$(date +%s)"
+        
+        cd azure
+        az deployment group create \
+          --resource-group $RESOURCE_GROUP \
+          --template-file api-deployment.json \
+          --parameters \
+            containerImage="${ACR_LOGIN_SERVER}/${API_IMAGE_NAME}:latest" \
+            dnsNameLabel=$API_DNS_LABEL
+
+    - name: 🎨 Deploy Frontend Container
+      if: github.ref == 'refs/heads/main'
+      run: |
+        ACR_LOGIN_SERVER=$(az acr show --name $REGISTRY_NAME --resource-group $RESOURCE_GROUP --query "loginServer" --output tsv)
+        FRONTEND_DNS_LABEL="ml-playground-frontend-$(date +%s)"
+        
+        # Get API URL
+        API_FQDN=$(az deployment group show \
+          --resource-group $RESOURCE_GROUP \
+          --name api-deployment \
+          --query properties.outputs.containerFQDN.value \
+          --output tsv)
+        API_BASE_URL="http://${API_FQDN}:8000"
+        
+        cd azure
+        az deployment group create \
+          --resource-group $RESOURCE_GROUP \
+          --template-file frontend-deployment.json \
+          --parameters \
+            containerImage="${ACR_LOGIN_SERVER}/${FRONTEND_IMAGE_NAME}:latest" \
+            apiBaseUrl=$API_BASE_URL \
+            dnsNameLabel=$FRONTEND_DNS_LABEL
+
+    - name: 📊 Get Deployment URLs
+      if: github.ref == 'refs/heads/main'
+      run: |
+        API_FQDN=$(az deployment group show \
+          --resource-group $RESOURCE_GROUP \
+          --name api-deployment \
+          --query properties.outputs.containerFQDN.value \
+          --output tsv)
+        
+        FRONTEND_FQDN=$(az deployment group show \
+          --resource-group $RESOURCE_GROUP \
+          --name frontend-deployment \
+          --query properties.outputs.containerFQDN.value \
+          --output tsv)
+        
+        echo "🎉 Deployment completed!"
+        echo "📡 API: http://${API_FQDN}:8000"
+        echo "🎨 Frontend: http://${FRONTEND_FQDN}:8501"
