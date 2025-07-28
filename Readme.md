@@ -35,7 +35,7 @@ An interactive platform to explore and experiment with machine learning algorith
 - **📈 Rich Visualizations**: Interactive plots showing training dynamics and model performance
 - **⚙️ Flexible Configuration**: Extensive hyperparameter tuning options
 
-## 🛠️ Installation & Setup
+## 🛠️ Local Installation & Setup
 
 ### Prerequisites
 - Python 3.8+
@@ -49,38 +49,26 @@ An interactive platform to explore and experiment with machine learning algorith
    cd ML-Playground
    ```
 
-2. **Create and activate virtual environment**
-   ```powershell
-   # Windows PowerShell
-   python -m venv venv
-   .\venv\Scripts\Activate.ps1
-   ```
-
-3. **Install dependencies**
-   ```powershell
+2. **Install dependencies**
+   ```bash
    pip install -r requirements.txt
    ```
 
-4. **Start the application**
-   ```powershell
-   # Option 1: Use Python script (cross-platform)
-   python run.py
-   
-   # Option 2: Use PowerShell script (Windows)
-   .\start.ps1
-   
-   # Option 3: Use batch file (Windows)
-   .\start.bat
-   
-   # Option 4: Manual startup (advanced users)
-   # Terminal 1 - Backend
+3. **Start the backend API**
+   ```bash
    cd backend
-   uvicorn main:app --reload --host 0.0.0.0 --port 8000
-   
-   # Terminal 2 - Frontend  
+   python -m uvicorn main:app --host 0.0.0.0 --port 8000
+   ```
+
+4. **Start the frontend (in a new terminal)**
+   ```bash
    cd frontend
    streamlit run app.py --server.port 8501
    ```
+
+5. **Access the application**
+   - 🌐 **Frontend**: http://localhost:8501
+   - 🔗 **API**: http://localhost:8000
 
 5. **Access the application**
    - Frontend (Streamlit): http://localhost:8501
@@ -105,10 +93,8 @@ ML-Playground/
 ├── frontend/                 # Streamlit frontend
 │   └── app.py               # Main Streamlit application
 │
-├── run.py                   # Cross-platform startup script
-├── start.ps1               # PowerShell startup script
-├── start.bat               # Batch startup script  
 ├── requirements.txt        # Python dependencies
+├── .gitignore             # Git ignore rules
 └── README.md              # This file
 ```
 
