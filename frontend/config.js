@@ -14,7 +14,7 @@ const CONFIG = {
 };
 
 // Automatically detect environment
-// GitHub Pages will be production, localhost will be development
+// Custom domain and GitHub Pages will be production, localhost will be development
 const isLocalhost = window.location.hostname === 'localhost' || 
                    window.location.hostname === '127.0.0.1' || 
                    window.location.hostname === '';

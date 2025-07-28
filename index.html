@@ -34,7 +34,18 @@
     </style>
     <script>
         // Redirect to frontend folder
-        window.location.replace('./frontend/');
+        // Handle both GitHub Pages and custom domain
+        const currentHost = window.location.hostname;
+        if (currentHost === 'playground.vanshdeshwal.dev') {
+            // Custom domain - redirect to frontend
+            window.location.replace('./frontend/');
+        } else if (currentHost.includes('github.io')) {
+            // GitHub Pages - redirect to frontend
+            window.location.replace('./frontend/');
+        } else {
+            // Fallback
+            window.location.replace('./frontend/');
+        }
     </script>
 </head>
 <body>

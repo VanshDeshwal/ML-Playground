@@ -34,6 +34,8 @@ class Settings:
         "http://127.0.0.1:8080",      # Alternative local IP
         "https://*.github.io",        # GitHub Pages (all subdomains)
         "https://vansdeshwal.github.io",  # Your specific GitHub Pages URL
+        "https://playground.vanshdeshwal.dev",  # Your custom domain
+        "https://vanshdeshwal.dev",   # Root domain (if needed)
     ]
     CORS_CREDENTIALS = True
     CORS_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
