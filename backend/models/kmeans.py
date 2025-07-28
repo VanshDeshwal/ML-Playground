@@ -1,8 +1,16 @@
 import numpy as np
+import time
+from typing import Dict, Any, Optional
 from sklearn.datasets import make_blobs
 from sklearn.metrics import adjusted_rand_score, silhouette_score
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+
+# Import our base algorithm interface
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from algorithm_registry import BaseAlgorithm
 
 # ⟢ Helper Functions for k-Means Clustering ⟣
 def euclidean_distance(point1, point2):
@@ -58,8 +66,11 @@ def compute_inertia(X, labels, centroids):
     return inertia
 
 # ⟢ Building a k-Means Clustering Class ⟣
-class MyKMeans:
+class MyKMeans(BaseAlgorithm):
+    """Enhanced K-Means Clustering with BaseAlgorithm interface"""
+    
     def __init__(self, k=3, max_iters=100, random_state=None, tol=1e-4):
+        super().__init__()
         self.k = k
         self.max_iters = max_iters
         self.random_state = random_state
@@ -68,10 +79,54 @@ class MyKMeans:
         self.labels = None
         self.inertia_history = []
         self.n_iter_ = 0
-
-    def fit(self, X):
+    
+    @classmethod
+    def get_metadata(cls) -> Dict[str, Any]:
+        """Return algorithm metadata"""
+        return {
+            "id": "kmeans",
+            "name": "K-Means Clustering (From Scratch)",
+            "type": "clustering",
+            "description": "Unsupervised clustering using k-means algorithm with Lloyd's algorithm",
+            "hyperparameters": {
+                "k": {
+                    "type": "int",
+                    "default": 3,
+                    "min": 2,
+                    "max": 20,
+                    "description": "Number of clusters to form"
+                },
+                "max_iters": {
+                    "type": "int",
+                    "default": 100,
+                    "min": 10,
+                    "max": 1000,
+                    "description": "Maximum number of iterations for convergence"
+                },
+                "tol": {
+                    "type": "float",
+                    "default": 1e-4,
+                    "min": 1e-8,
+                    "max": 1e-2,
+                    "description": "Tolerance for convergence detection"
+                },
+                "random_state": {
+                    "type": "int",
+                    "default": 42,
+                    "min": 0,
+                    "max": 1000,
+                    "description": "Random seed for reproducible results"
+                }
+            }
+        }
+    
+    async def train(self, X: np.ndarray, y: Optional[np.ndarray] = None, **kwargs) -> Dict[str, Any]:
+        """Train the k-means clustering model"""
+        start_time = time.time()
+        
         # Initialize centroids
         self.centroids = initialize_centroids(X, self.k, self.random_state)
+        self.inertia_history = []
         
         prev_centroids = None
         
@@ -96,11 +151,55 @@ class MyKMeans:
             self.centroids = new_centroids
             self.n_iter_ = i + 1
         
-        return self
-
-    def predict(self, X):
+        training_time = time.time() - start_time
+        
+        # Calculate metrics
+        silhouette = silhouette_score(X, self.labels) if len(np.unique(self.labels)) > 1 else 0.0
+        final_inertia = self.inertia_history[-1] if self.inertia_history else 0.0
+        
+        return {
+            "training_time": float(training_time),
+            "metrics": {
+                "silhouette_score": float(silhouette),
+                "inertia": float(final_inertia),
+                "n_iterations": int(self.n_iter_),
+                "converged": bool(self.n_iter_ < self.max_iters)
+            },
+            "metadata": {
+                "centroids": [[float(val) for val in centroid] for centroid in self.centroids],
+                "inertia_history": [float(x) for x in self.inertia_history],
+                "n_clusters": int(self.k),
+                "n_iterations": int(self.n_iter_),
+                "tolerance": float(self.tol),
+                "n_features": int(X.shape[1]),
+                "n_samples": int(X.shape[0]),
+                "cluster_sizes": [int(np.sum(self.labels == i)) for i in range(self.k)]
+            }
+        }
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict cluster labels for new data"""
+        if self.centroids is None:
+            raise ValueError("Model must be trained before making predictions")
         return assign_clusters(X, self.centroids)
+    
+    def get_sklearn_equivalent(self):
+        """Return equivalent sklearn model for comparison"""
+        from sklearn.cluster import KMeans
+        return KMeans(n_clusters=self.k, max_iter=self.max_iters, 
+                     random_state=self.random_state, tol=self.tol, n_init=1)
+
+    def fit(self, X):
+        """Legacy interface - calls async train method"""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        result = loop.run_until_complete(self.train(X))
+        return self
 
     def fit_predict(self, X):
         """Fit the model and return cluster labels"""

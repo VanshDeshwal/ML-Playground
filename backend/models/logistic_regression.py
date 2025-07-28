@@ -1,7 +1,15 @@
 import numpy as np
+import time
+from typing import Dict, Any, Optional, Tuple
 from sklearn.datasets import make_classification
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
+
+# Import our base algorithm interface
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from algorithm_registry import BaseAlgorithm
 
 # ⟢ Helper Functions for Logistic Regression ⟣
 def sigmoid(z):
@@ -37,15 +45,54 @@ def compute_logistic_gradient(X_b, y_true, y_pred_proba):
     return (1 / m) * X_b.T @ (y_pred_proba - y_true)
 
 # ⟢ Building a Logistic Regression Class ⟣
-class MyLogisticRegression:
+class MyLogisticRegression(BaseAlgorithm):
+    """Enhanced Logistic Regression with BaseAlgorithm interface"""
+    
     def __init__(self, alpha=0.01, n_iters=1000, threshold=0.5):
+        super().__init__()
         self.alpha = alpha
         self.n_iters = n_iters
         self.threshold = threshold
         self.beta = None
         self.loss_history = []
-
-    def fit(self, X, y):
+    
+    @classmethod
+    def get_metadata(cls) -> Dict[str, Any]:
+        """Return algorithm metadata"""
+        return {
+            "id": "logistic_regression",
+            "name": "Logistic Regression (From Scratch)",
+            "type": "classification",
+            "description": "Binary classification using logistic regression with gradient descent",
+            "hyperparameters": {
+                "alpha": {
+                    "type": "float",
+                    "default": 0.01,
+                    "min": 0.001,
+                    "max": 1.0,
+                    "description": "Learning rate for gradient descent"
+                },
+                "n_iters": {
+                    "type": "int", 
+                    "default": 1000,
+                    "min": 100,
+                    "max": 10000,
+                    "description": "Number of gradient descent iterations"
+                },
+                "threshold": {
+                    "type": "float",
+                    "default": 0.5,
+                    "min": 0.1,
+                    "max": 0.9,
+                    "description": "Classification threshold for predictions"
+                }
+            }
+        }
+    
+    async def train(self, X: np.ndarray, y: np.ndarray, **kwargs) -> Dict[str, Any]:
+        """Train the logistic regression model"""
+        start_time = time.time()
+        
         # Add bias and convert inputs
         X_b = add_bias(X)
         y_arr = y.values if hasattr(y, 'values') else np.asarray(y)
@@ -53,6 +100,7 @@ class MyLogisticRegression:
         # Initialize beta
         m, n = X_b.shape
         self.beta = np.zeros(n)
+        self.loss_history = []
         
         # Gradient descent
         for i in range(self.n_iters):
@@ -65,17 +113,62 @@ class MyLogisticRegression:
                 loss = compute_logistic_loss(y_arr, y_pred_proba)
                 self.loss_history.append(loss)
         
-        return self
-
-    def predict_proba(self, X):
-        """Predict class probabilities"""
-        X_b = add_bias(X)
-        return predict_proba(X_b, self.beta)
-
-    def predict(self, X):
+        training_time = time.time() - start_time
+        
+        # Calculate final metrics
+        y_pred = self.predict(X)
+        y_pred_proba = self.predict_proba(X)
+        final_loss = compute_logistic_loss(y_arr, y_pred_proba)
+        accuracy = accuracy_score(y_arr, y_pred)
+        
+        return {
+            "training_time": float(training_time),
+            "metrics": {
+                "accuracy": float(accuracy),
+                "final_loss": float(final_loss),
+                "convergence_loss": float(self.loss_history[-1] if self.loss_history else final_loss)
+            },
+            "metadata": {
+                "coefficients": [float(x) for x in self.beta],
+                "loss_history": [float(x) for x in self.loss_history],
+                "n_iterations": int(self.n_iters),
+                "learning_rate": float(self.alpha),
+                "threshold": float(self.threshold),
+                "n_features": int(X.shape[1]),
+                "n_samples": int(X.shape[0])
+            }
+        }
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """Make binary predictions"""
+        if self.beta is None:
+            raise ValueError("Model must be trained before making predictions")
         X_b = add_bias(X)
         return predict_binary(X_b, self.beta, self.threshold)
+    
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        """Predict class probabilities"""
+        if self.beta is None:
+            raise ValueError("Model must be trained before making predictions")
+        X_b = add_bias(X)
+        return predict_proba(X_b, self.beta)
+    
+    def get_sklearn_equivalent(self):
+        """Return equivalent sklearn model for comparison"""
+        from sklearn.linear_model import LogisticRegression
+        return LogisticRegression(max_iter=self.n_iters, random_state=42)
+
+    def fit(self, X, y):
+        """Legacy interface - calls async train method"""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        result = loop.run_until_complete(self.train(X, y))
+        return self
 
     def get_params(self):
         """Return learned weight vector (including bias)."""

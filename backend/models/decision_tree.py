@@ -1,8 +1,16 @@
 import numpy as np
+import time
+from typing import Dict, Any, Optional
 from sklearn.datasets import make_classification, make_regression
 from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from collections import Counter
+
+# Import our base algorithm interface
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from algorithm_registry import BaseAlgorithm
 
 # ⟢ Helper Functions for Decision Tree ⟣
 def entropy(y):
@@ -91,7 +99,9 @@ class TreeNode:
         self.value = value           # Prediction value (for leaf nodes)
 
 # ⟢ Building a Decision Tree Class ⟣
-class MyDecisionTree:
+class MyDecisionTree(BaseAlgorithm):
+    """Enhanced Decision Tree with BaseAlgorithm interface"""
+    
     def __init__(self, max_depth=10, min_samples_split=2, min_samples_leaf=1, 
                  criterion='entropy', task='classification'):
         """
@@ -101,6 +111,7 @@ class MyDecisionTree:
         criterion: 'entropy', 'gini' (classification) or 'mse' (regression)
         task: 'classification' or 'regression'
         """
+        super().__init__()
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
@@ -108,20 +119,180 @@ class MyDecisionTree:
         self.task = task
         self.root = None
         self.feature_importances_ = None
-
-    def fit(self, X, y):
-        """Build the decision tree"""
+    
+    @classmethod
+    def get_metadata(cls) -> Dict[str, Any]:
+        """Return algorithm metadata"""
+        return {
+            "id": "decision_tree",
+            "name": "Decision Tree (From Scratch)",
+            "type": "classification",  # Default, can handle both
+            "description": "Tree-based model for classification and regression using recursive binary splits",
+            "hyperparameters": {
+                "max_depth": {
+                    "type": "int",
+                    "default": 10,
+                    "min": 1,
+                    "max": 50,
+                    "description": "Maximum depth of the tree"
+                },
+                "min_samples_split": {
+                    "type": "int",
+                    "default": 2,
+                    "min": 2,
+                    "max": 20,
+                    "description": "Minimum samples required to split an internal node"
+                },
+                "min_samples_leaf": {
+                    "type": "int",
+                    "default": 1,
+                    "min": 1,
+                    "max": 10,
+                    "description": "Minimum samples required to be at a leaf node"
+                },
+                "criterion": {
+                    "type": "string",
+                    "default": "entropy",
+                    "options": ["entropy", "gini", "mse"],
+                    "description": "Function to measure split quality"
+                },
+                "task": {
+                    "type": "string",
+                    "default": "classification",
+                    "options": ["classification", "regression"],
+                    "description": "Type of prediction task"
+                }
+            }
+        }
+    
+    async def train(self, X: np.ndarray, y: np.ndarray, **kwargs) -> Dict[str, Any]:
+        """Train the decision tree model"""
+        start_time = time.time()
+        
+        # Store data and initialize
         self.X = np.array(X)
         self.y = np.array(y)
         self.n_features = self.X.shape[1]
         self.feature_importances_ = np.zeros(self.n_features)
         
+        # Build the tree
         self.root = self._build_tree(self.X, self.y, depth=0)
         
         # Normalize feature importances
         if np.sum(self.feature_importances_) > 0:
             self.feature_importances_ /= np.sum(self.feature_importances_)
         
+        training_time = time.time() - start_time
+        
+        # Calculate metrics on training data
+        y_pred = self.predict(X)
+        
+        if self.task == 'classification':
+            accuracy = accuracy_score(y, y_pred)
+            unique_classes = len(np.unique(y))
+            metrics = {
+                "accuracy": float(accuracy),
+                "n_classes": int(unique_classes)
+            }
+        else:  # regression
+            mse = mean_squared_error(y, y_pred)
+            r2 = r2_score(y, y_pred)
+            metrics = {
+                "mse": float(mse),
+                "r2_score": float(r2),
+                "rmse": float(np.sqrt(mse))
+            }
+        
+        # Calculate tree statistics
+        tree_depth = self._get_tree_depth(self.root)
+        n_nodes = self._count_nodes(self.root)
+        n_leaves = self._count_leaves(self.root)
+        
+        return {
+            "training_time": float(training_time),
+            "metrics": metrics,
+            "metadata": {
+                "max_depth": int(self.max_depth),
+                "actual_depth": int(tree_depth),
+                "min_samples_split": int(self.min_samples_split),
+                "min_samples_leaf": int(self.min_samples_leaf),
+                "criterion": str(self.criterion),
+                "task": str(self.task),
+                "n_features": int(X.shape[1]),
+                "n_samples": int(X.shape[0]),
+                "n_nodes": int(n_nodes),
+                "n_leaves": int(n_leaves),
+                "feature_importances": [float(x) for x in self.feature_importances_]
+            }
+        }
+    
+    def _get_tree_depth(self, node, depth=0):
+        """Calculate actual depth of the tree"""
+        if node is None or node.value is not None:
+            return depth
+        return max(self._get_tree_depth(node.left, depth + 1),
+                  self._get_tree_depth(node.right, depth + 1))
+    
+    def _count_nodes(self, node):
+        """Count total number of nodes in the tree"""
+        if node is None:
+            return 0
+        return 1 + self._count_nodes(node.left) + self._count_nodes(node.right)
+    
+    def _count_leaves(self, node):
+        """Count number of leaf nodes in the tree"""
+        if node is None:
+            return 0
+        if node.value is not None:  # Leaf node
+            return 1
+        return self._count_leaves(node.left) + self._count_leaves(node.right)
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Make predictions for input data"""
+        if self.root is None:
+            raise ValueError("Model must be trained before making predictions")
+        
+        X = np.array(X)
+        predictions = []
+        
+        for sample in X:
+            prediction = self._predict_sample(sample, self.root)
+            predictions.append(prediction)
+        
+        return np.array(predictions)
+    
+    def get_sklearn_equivalent(self):
+        """Return equivalent sklearn model for comparison"""
+        from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+        
+        if self.task == 'classification':
+            return DecisionTreeClassifier(
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                criterion=self.criterion if self.criterion != 'entropy' else 'entropy',
+                random_state=42
+            )
+        else:
+            criterion = 'squared_error' if self.criterion == 'mse' else self.criterion
+            return DecisionTreeRegressor(
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                criterion=criterion,
+                random_state=42
+            )
+
+    def fit(self, X, y):
+        """Legacy interface - calls async train method"""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        result = loop.run_until_complete(self.train(X, y))
         return self
 
     def _build_tree(self, X, y, depth):

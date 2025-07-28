@@ -1,8 +1,16 @@
 import numpy as np
+import time
+from typing import Dict, Any, Optional
 from sklearn.datasets import make_classification, make_regression
 from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from collections import Counter
+
+# Import our base algorithm interface
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from algorithm_registry import BaseAlgorithm
 
 # ⟢ Helper Functions for k-Nearest Neighbors ⟣
 def euclidean_distance(point1, point2):
@@ -56,7 +64,9 @@ def predict_regression_weighted(neighbors):
     return np.sum(weights * values) / np.sum(weights)
 
 # ⟢ Building a k-Nearest Neighbors Class ⟣
-class MyKNN:
+class MyKNN(BaseAlgorithm):
+    """Enhanced K-Nearest Neighbors with BaseAlgorithm interface"""
+    
     def __init__(self, k=5, task='classification', distance_metric='euclidean', weights='uniform'):
         """
         k: number of neighbors
@@ -64,6 +74,7 @@ class MyKNN:
         distance_metric: 'euclidean' or 'manhattan'
         weights: 'uniform' or 'distance'
         """
+        super().__init__()
         self.k = k
         self.task = task
         self.distance_metric = distance_metric
@@ -78,17 +89,92 @@ class MyKNN:
             self.distance_func = manhattan_distance
         else:
             raise ValueError("distance_metric must be 'euclidean' or 'manhattan'")
-
-    def fit(self, X, y):
-        """Store training data (lazy learning)"""
+    
+    @classmethod
+    def get_metadata(cls) -> Dict[str, Any]:
+        """Return algorithm metadata"""
+        return {
+            "id": "knn",
+            "name": "K-Nearest Neighbors (From Scratch)",
+            "type": "classification",  # Default, can handle both
+            "description": "Instance-based learning using k-nearest neighbors for classification and regression",
+            "hyperparameters": {
+                "k": {
+                    "type": "int",
+                    "default": 5,
+                    "min": 1,
+                    "max": 50,
+                    "description": "Number of nearest neighbors to consider"
+                },
+                "task": {
+                    "type": "string",
+                    "default": "classification",
+                    "options": ["classification", "regression"],
+                    "description": "Type of prediction task"
+                },
+                "distance_metric": {
+                    "type": "string",
+                    "default": "euclidean",
+                    "options": ["euclidean", "manhattan"],
+                    "description": "Distance metric for finding neighbors"
+                },
+                "weights": {
+                    "type": "string",
+                    "default": "uniform",
+                    "options": ["uniform", "distance"],
+                    "description": "Weight function for neighbors"
+                }
+            }
+        }
+    
+    async def train(self, X: np.ndarray, y: np.ndarray, **kwargs) -> Dict[str, Any]:
+        """Train the KNN model (lazy learning - just store data)"""
+        start_time = time.time()
+        
+        # Store training data
         self.X_train = np.array(X)
         self.y_train = np.array(y)
-        return self
-
-    def predict(self, X):
+        
+        training_time = time.time() - start_time
+        
+        # Calculate metrics on training data
+        y_pred = self.predict(X)
+        
+        if self.task == 'classification':
+            accuracy = accuracy_score(y, y_pred)
+            unique_classes = len(np.unique(y))
+            metrics = {
+                "accuracy": float(accuracy),
+                "n_classes": int(unique_classes)
+            }
+        else:  # regression
+            mse = mean_squared_error(y, y_pred)
+            r2 = r2_score(y, y_pred)
+            metrics = {
+                "mse": float(mse),
+                "r2_score": float(r2),
+                "rmse": float(np.sqrt(mse))
+            }
+        
+        return {
+            "training_time": float(training_time),
+            "metrics": metrics,
+            "metadata": {
+                "k": int(self.k),
+                "task": str(self.task),
+                "distance_metric": str(self.distance_metric),
+                "weights": str(self.weights),
+                "n_features": int(X.shape[1]),
+                "n_samples": int(X.shape[0]),
+                "lazy_learning": True,
+                "training_note": "KNN is lazy learning - no actual training occurs"
+            }
+        }
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """Make predictions for input data"""
         if self.X_train is None:
-            raise ValueError("Model must be fitted before making predictions")
+            raise ValueError("Model must be trained before making predictions")
         
         X = np.array(X)
         predictions = []
@@ -110,6 +196,29 @@ class MyKNN:
             predictions.append(pred)
         
         return np.array(predictions)
+    
+    def get_sklearn_equivalent(self):
+        """Return equivalent sklearn model for comparison"""
+        from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+        
+        metric = 'euclidean' if self.distance_metric == 'euclidean' else 'manhattan'
+        
+        if self.task == 'classification':
+            return KNeighborsClassifier(n_neighbors=self.k, metric=metric, weights=self.weights)
+        else:
+            return KNeighborsRegressor(n_neighbors=self.k, metric=metric, weights=self.weights)
+
+    def fit(self, X, y):
+        """Legacy interface - calls async train method"""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        result = loop.run_until_complete(self.train(X, y))
+        return self
 
     def predict_proba(self, X):
         """Predict class probabilities (classification only)"""
