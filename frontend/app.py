@@ -9,6 +9,14 @@ import json
 from datetime import datetime
 import time
 import os
+from functools import lru_cache
+
+# Import performance improvements
+from performance_improvements import (
+    get_algorithms_cached, get_datasets_cached, get_minified_css,
+    optimize_session_state, train_model_optimized, create_metric_card_optimized,
+    lazy_load_visualizations, optimize_plotly_config
+)
 
 # Configure page
 st.set_page_config(
@@ -18,252 +26,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-def load_css():
-    """Load custom CSS for modern design"""
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    .main {
-        font-family: 'Inter', sans-serif;
-    }
-    
-    .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2.5rem;
-        border-radius: 15px;
-        color: white;
-        text-align: center;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
-    }
-    
-    .main-header h1 {
-        font-size: 3rem;
-        font-weight: 700;
-        margin: 0;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-    
-    .main-header p {
-        font-size: 1.2rem;
-        margin: 0.5rem 0 0 0;
-        opacity: 0.9;
-    }
-    
-    .algorithm-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        border-left: 4px solid #667eea;
-        margin-bottom: 1rem;
-        transition: all 0.3s ease;
-        border: 1px solid #f0f0f0;
-    }
-    
-    .algorithm-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-    }
-    
-    .algorithm-icon {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .metric-card {
-        background: #f8f9fa;
-        padding: 1.5rem;
-        border-radius: 10px;
-        text-align: center;
-        border: 1px solid #e9ecef;
-        margin-bottom: 1rem;
-        transition: all 0.3s ease;
-    }
-    
-    .metric-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    }
-    
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #667eea;
-    }
-    
-    .metric-label {
-        font-size: 0.9rem;
-        color: #6c757d;
-        margin-top: 0.5rem;
-    }
-    
-    .comparison-better {
-        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-        border-color: #c3e6cb;
-        color: #155724;
-        font-weight: 600;
-    }
-    
-    .comparison-worse {
-        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-        border-color: #f5c6cb;
-        color: #721c24;
-        font-weight: 600;
-    }
-    
-    .section-header {
-        background: linear-gradient(90deg, #f8f9fa 0%, #e9ecef 100%);
-        padding: 1rem 1.5rem;
-        border-radius: 10px;
-        border-left: 4px solid #667eea;
-        margin: 1.5rem 0 1rem 0;
-    }
-    
-    .section-header h3 {
-        margin: 0;
-        color: #495057;
-        font-weight: 600;
-    }
-    
-    .status-badge {
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-    
-    .status-success {
-        background: #d4edda;
-        color: #155724;
-    }
-    
-    .status-warning {
-        background: #fff3cd;
-        color: #856404;
-    }
-    
-    .status-error {
-        background: #f8d7da;
-        color: #721c24;
-    }
-    
-    .nav-pill {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 25px;
-        padding: 0.5rem 1rem;
-        margin: 0.25rem;
-        display: inline-block;
-        transition: all 0.3s ease;
-    }
-    
-    .nav-pill:hover {
-        background: #667eea;
-        color: white;
-        transform: translateY(-1px);
-    }
-    
-    .experiment-row {
-        background: white;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 0.5rem;
-        border: 1px solid #e9ecef;
-        transition: all 0.3s ease;
-    }
-    
-    .experiment-row:hover {
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        border-color: #667eea;
-    }
-    
-    .progress-bar {
-        background: #e9ecef;
-        border-radius: 10px;
-        height: 8px;
-        overflow: hidden;
-    }
-    
-    .progress-fill {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        height: 100%;
-        transition: width 0.3s ease;
-    }
-    
-    .feature-highlight {
-        background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-        border: 2px solid #667eea;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        position: relative;
-    }
-    
-    .feature-highlight::before {
-        content: "✨";
-        position: absolute;
-        top: -10px;
-        left: 20px;
-        background: white;
-        padding: 0 10px;
-        font-size: 1.2rem;
-    }
-    
-    .sidebar .sidebar-content {
-        background: #f8f9fa;
-        border-radius: 10px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    
-    /* Custom button styles */
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 0.5rem 1.5rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    }
-    
-    /* Custom selectbox styles */
-    .stSelectbox > div > div {
-        border-radius: 8px;
-        border: 2px solid #e9ecef;
-    }
-    
-    .stSelectbox > div > div:focus-within {
-        border-color: #667eea;
-        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-    }
-    
-    /* Custom tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
-        border: 1px solid #dee2e6;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# Initialize session state and apply optimizations
+optimize_session_state()
+
+# Load optimized CSS
+st.markdown(get_minified_css(), unsafe_allow_html=True)
 
 # API Configuration
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
@@ -297,9 +64,12 @@ def create_metric_card(title, value, delta=None, delta_color="normal"):
         arrow = "↗" if delta > 0 else "↘" if delta < 0 else "→"
         delta_html = f'<div style="color: {color}; font-size: 0.9rem; margin-top: 0.25rem;">{arrow} {delta:+.3f}</div>'
     
+    # Format value properly
+    formatted_value = f"{value:.3f}" if isinstance(value, float) else str(value)
+    
     return f"""
     <div class="metric-card">
-        <div class="metric-value">{value:.3f if isinstance(value, float) else value}</div>
+        <div class="metric-value">{formatted_value}</div>
         <div class="metric-label">{title}</div>
         {delta_html}
     </div>
@@ -327,10 +97,11 @@ def create_algorithm_card(algo, is_selected=False):
     </div>
     """
 
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_algorithms():
-    """Fetch available algorithms from API"""
+    """Fetch available algorithms from API with caching"""
     try:
-        response = requests.get(f"{API_BASE_URL}/algorithms")
+        response = requests.get(f"{API_BASE_URL}/algorithms", timeout=10)
         if response.status_code == 200:
             return response.json()
         else:
@@ -338,6 +109,9 @@ def get_algorithms():
             return []
     except requests.exceptions.ConnectionError:
         st.error("Could not connect to the backend API. Make sure the FastAPI server is running.")
+        return []
+    except requests.exceptions.Timeout:
+        st.error("Request timed out. Please check your connection.")
         return []
 
 def train_model(algorithm_id, hyperparameters, dataset_config, compare_sklearn=True, dataset_source="generated", builtin_dataset="diabetes", uploaded_data=None):
@@ -391,7 +165,6 @@ def upload_dataset(uploaded_file):
 
 def main():
     """Main application with modern UI"""
-    load_css()
     
     # Sidebar Navigation
     with st.sidebar:
@@ -423,6 +196,20 @@ def main():
                 st.metric("Experiments", total_experiments)
             with col2:
                 st.metric("Success Rate", f"{success_rate:.1f}%")
+        
+        # API Management
+        st.markdown("---")
+        st.markdown("### 🔄 API Status")
+        from performance_improvements import check_api_health, refresh_api_data
+        
+        if check_api_health():
+            st.success("✅ API Online")
+        else:
+            st.error("❌ API Offline")
+            
+        if st.button("🔄 Refresh API Data", help="Clear cache and refresh data from backend"):
+            refresh_api_data()
+            st.rerun()
     
     # Main Content Area
     if st.session_state.current_page == "Home":
@@ -438,6 +225,13 @@ def main():
 
 def show_home_page():
     """Modern home page with hero section and algorithm gallery"""
+    # API Status Check
+    from performance_improvements import check_api_health
+    if not check_api_health():
+        st.warning("⚠️ Backend API is not running. Please start the backend server to access algorithms and training features.")
+        st.info("💡 **Tip:** Start the backend with `python backend/main.py` or use the 'Refresh API Data' button in the sidebar when it's ready.")
+        return
+    
     # Hero Section
     st.markdown("""
     <div class="main-header">
@@ -468,7 +262,7 @@ def show_home_page():
     st.markdown("---")
     
     # Algorithm Gallery
-    algorithms = get_algorithms()
+    algorithms = get_algorithms_cached()
     if algorithms:
         st.markdown("""
         <div class="section-header">
@@ -579,7 +373,7 @@ def show_dashboard():
                      title="Model Performance Over Time",
                      labels={'experiment_id': 'Experiment Number', 'accuracy': 'Score'})
         fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config=optimize_plotly_config())
     
     # Algorithm performance comparison
     st.markdown("### 🏆 Algorithm Performance Comparison")
@@ -597,7 +391,7 @@ def show_dashboard():
                     title="Average Performance by Algorithm",
                     labels={'x': 'Algorithm', 'y': 'Average Score'})
         fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config=optimize_plotly_config())
     
     # Detailed experiment history
     st.markdown("### 📋 Experiment History")
@@ -629,7 +423,7 @@ def show_comparison_lab():
     </div>
     """, unsafe_allow_html=True)
     
-    algorithms = get_algorithms()
+    algorithms = get_algorithms_cached()
     if not algorithms:
         st.error("Unable to load algorithms. Please check the backend connection.")
         return
@@ -671,7 +465,7 @@ def show_comparison_lab():
         dataset_source_api = "generated"
         builtin_dataset = None
     else:
-        datasets_info = get_datasets()
+        datasets_info = get_datasets_cached()
         available_datasets = [d for d in datasets_info["builtin_datasets"] if d['type'] == algo1['type']]
         
         if available_datasets:
@@ -695,7 +489,7 @@ def show_comparison_lab():
                 # Use default hyperparameters
                 hyperparameters = {param: config['default'] for param, config in algo['hyperparameters'].items()}
                 
-                result = train_model(
+                result = train_model_optimized(
                     algo['id'],
                     hyperparameters,
                     dataset_config,
@@ -757,7 +551,7 @@ def show_documentation():
     """, unsafe_allow_html=True)
     
     # Algorithm documentation tabs
-    algorithms = get_algorithms()
+    algorithms = get_algorithms_cached()
     if algorithms:
         tabs = st.tabs(["📖 Overview", "🧮 Algorithms", "📊 Datasets", "🎯 Tips & Best Practices"])
         
@@ -804,7 +598,7 @@ def show_documentation():
         
         with tabs[2]:
             st.markdown("### 📊 Available Datasets")
-            datasets_info = get_datasets()
+            datasets_info = get_datasets_cached()
             
             if datasets_info["builtin_datasets"]:
                 for dataset in datasets_info["builtin_datasets"]:
@@ -965,7 +759,7 @@ def show_home_page():
         st.subheader("Available Algorithms")
         
         # Fetch and display algorithms
-        algorithms = get_algorithms()
+        algorithms = get_algorithms_cached()
         if algorithms:
             for algo in algorithms:
                 with st.expander(f"🔧 {algo['name']}"):
@@ -1012,9 +806,18 @@ def show_algorithm_explorer():
     </div>
     """, unsafe_allow_html=True)
     
-    algorithms = get_algorithms()
+    algorithms = get_algorithms_cached()
     if not algorithms:
-        st.error("❌ Unable to load algorithms. Please check the backend connection.")
+        from performance_improvements import check_api_health
+        if not check_api_health():
+            st.error("❌ Backend API is not running. Please start the backend server first.")
+            st.info("💡 **Instructions:**\n1. Navigate to the backend directory\n2. Run: `python main.py`\n3. Use the 'Refresh API Data' button in the sidebar when ready")
+        else:
+            st.error("❌ Unable to load algorithms. API is running but returned no data.")
+            if st.button("🔄 Try Again"):
+                from performance_improvements import clear_api_cache
+                clear_api_cache()
+                st.rerun()
         return
     
     # Algorithm selection with cards
@@ -1107,7 +910,7 @@ def show_algorithm_explorer():
                 dataset_source_api = "generated"
                 
             elif dataset_source == "Built-in":
-                datasets_info = get_datasets()
+                datasets_info = get_datasets_cached()
                 if datasets_info["builtin_datasets"]:
                     # Filter datasets by algorithm type (clustering datasets only for clustering algorithms)
                     available_datasets = datasets_info["builtin_datasets"]
@@ -1220,7 +1023,7 @@ def show_algorithm_explorer():
             # Train button
             if st.button("🚀 Train Model", type="primary"):
                 with st.spinner("Training model..."):
-                    result = train_model(
+                    result = train_model_optimized(
                         selected_algo['id'], 
                         hyperparameters, 
                         dataset_config,
