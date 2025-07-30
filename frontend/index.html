@@ -16,11 +16,9 @@
                     <i class="fas fa-brain"></i>
                     ML Playground
                 </h1>
-                <div class="status-indicator">
-                    <span id="backend-status" class="status offline">
-                        <i class="fas fa-circle"></i>
-                        Connecting...
-                    </span>
+                <div class="status-indicator" id="status-indicator">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Connecting...</span>
                 </div>
             </div>
         </div>
@@ -41,42 +39,6 @@
             </section>
         </div>
     </main>
-
-    <!-- Algorithm Modal -->
-    <div id="algorithm-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-title">Algorithm Name</h3>
-                <button class="close-btn" id="close-modal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="algorithm-info">
-                    <p id="algorithm-description">Algorithm description...</p>
-                    
-                    <div class="training-section">
-                        <h4>Train Algorithm</h4>
-                        <button id="train-btn" class="btn btn-primary">
-                            <i class="fas fa-play"></i>
-                            Start Training
-                        </button>
-                        <div id="training-status" class="training-status hidden">
-                            <i class="fas fa-spinner fa-spin"></i>
-                            Training in progress...
-                        </div>
-                    </div>
-
-                    <div id="results-section" class="results-section hidden">
-                        <h4>Results</h4>
-                        <div id="results-content" class="results-content">
-                            <!-- Results will be populated here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <footer class="footer">
         <div class="container">

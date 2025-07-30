@@ -34,11 +34,6 @@ def compute_gradient(X_b, y_true, y_pred):
 class MyLinearRegression(BaseAlgorithm):
     """Linear Regression with gradient descent - from scratch implementation"""
     
-    def __init__(self, alpha=0.01, n_iters=1000):
-        self.alpha = alpha
-        self.n_iters = n_iters
-        self.beta = None
-        self.loss_history = []
     @classmethod
     def get_metadata(cls) -> Dict[str, Any]:
         """Return algorithm metadata"""

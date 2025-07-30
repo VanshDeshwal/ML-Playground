@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithm Training - ML Playground</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="nav">
+                <div class="nav-brand">
+                    <a href="index.html" class="brand-link">
+                        <i class="fas fa-flask"></i>
+                        <span>ML Playground</span>
+                    </a>
+                </div>
+                <div class="nav-actions">
+                    <a href="index.html" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Algorithms
+                    </a>
+                    <div class="status-indicator" id="status-indicator">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Connecting...</span>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <!-- Algorithm Header -->
+            <section class="algorithm-header">
+                <div class="algorithm-info">
+                    <h1 id="algorithm-title">
+                        <i id="algorithm-icon" class="fas fa-cog"></i>
+                        <span id="algorithm-name">Loading...</span>
+                    </h1>
+                    <p id="algorithm-description">Loading algorithm details...</p>
+                    <div class="algorithm-meta">
+                        <span class="algorithm-type-badge" id="algorithm-type">...</span>
+                        <span class="algorithm-id" id="algorithm-id">...</span>
+                    </div>
+                </div>
+                <div class="algorithm-actions">
+                    <button class="btn btn-primary btn-large" id="train-btn">
+                        <i class="fas fa-play"></i>
+                        Start Training
+                    </button>
+                </div>
+            </section>
+
+            <!-- Training Configuration -->
+            <section class="training-config" id="training-config">
+                <h3><i class="fas fa-sliders-h"></i> Training Configuration</h3>
+                <div class="config-grid" id="hyperparameter-controls">
+                    <!-- Hyperparameter controls will be generated here -->
+                </div>
+            </section>
+
+            <!-- Training Status -->
+            <section class="training-status hidden" id="training-status">
+                <div class="status-content">
+                    <div class="loading-spinner">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <div class="status-text">
+                        <h3>Training in Progress...</h3>
+                        <p>Please wait while the algorithm learns from the data</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Training Results -->
+            <section class="results-section hidden" id="results-section">
+                <div id="results-content">
+                    <!-- Results will be populated here -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="config.js"></script>
+    <script src="api.js"></script>
+    <script src="algorithm.js"></script>
+</body>
+</html>

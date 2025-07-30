@@ -48,20 +48,37 @@ class APIService {
         }
     }
 
-    async trainAlgorithm(algorithmName) {
+    async trainAlgorithm(algorithmName, hyperparameters = {}, datasetConfig = {}) {
         try {
-            const response = await fetch(`${this.baseURL}/train/${algorithmName}`, {
+            const requestBody = {
+                algorithm_id: algorithmName,
+                hyperparameters: hyperparameters,
+                dataset_config: datasetConfig,
+                dataset_source: "generated",
+                compare_sklearn: true
+            };
+
+            console.log('Sending training request:', requestBody);
+
+            const response = await fetch(`${this.baseURL}/train`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                body: JSON.stringify(requestBody)
             });
 
+            console.log('Response status:', response.status);
+
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                console.error('Training API error response:', errorText);
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
             }
 
-            return await response.json();
+            const result = await response.json();
+            console.log('Training API success response:', result);
+            return result;
         } catch (error) {
             console.error(`Failed to train ${algorithmName}:`, error);
             throw error;
