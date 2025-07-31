@@ -6,15 +6,6 @@ class MLPlaygroundApp {
     }
 
     async init() {
-        console.log('Initializing ML Playground App...');
-        console.log('API Service available:', !!window.apiService);
-        console.log('APP Config available:', !!window.APP_CONFIG);
-        
-        if (!window.apiService) {
-            console.error('API Service not initialized!');
-            return;
-        }
-        
         await this.checkBackendConnection();
         await this.loadAlgorithms();
     }
@@ -24,12 +15,8 @@ class MLPlaygroundApp {
         const statusDot = statusIndicator.querySelector('.status-dot');
         const statusText = statusIndicator.querySelector('.status-text');
         
-        console.log('Checking backend connection...');
-        console.log('API Base URL:', window.APP_CONFIG?.API_BASE_URL);
-        
         try {
             const isConnected = await window.apiService.checkBackendStatus();
-            console.log('Backend connection result:', isConnected);
             
             if (isConnected) {
                 statusDot.className = 'status-dot status-connected';
@@ -39,7 +26,6 @@ class MLPlaygroundApp {
                 statusText.textContent = 'Backend Disconnected';
             }
         } catch (error) {
-            console.error('Backend connection error:', error);
             statusDot.className = 'status-dot status-error';
             statusText.textContent = 'Connection Failed';
         }
@@ -48,15 +34,11 @@ class MLPlaygroundApp {
     async loadAlgorithms() {
         const gridElement = document.getElementById('algorithms-grid');
         
-        console.log('Loading algorithms...');
-        
         try {
             const algorithms = await window.apiService.getAlgorithms();
-            console.log('Algorithms loaded:', algorithms);
             this.algorithms = algorithms;
             this.renderAlgorithms(algorithms);
         } catch (error) {
-            console.error('Failed to load algorithms:', error);
             gridElement.innerHTML = `
                 <div class="loading">
                     <i class="fas fa-exclamation-triangle" style="color: var(--error-color);"></i>
@@ -133,4 +115,14 @@ class MLPlaygroundApp {
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new MLPlaygroundApp();
+
+    // Fetch and display version
+    fetch('version.txt')
+        .then(response => response.text())
+        .then(version => {
+            document.getElementById('version-info').textContent = `Version: ${version.trim()}`;
+        })
+        .catch(() => {
+            document.getElementById('version-info').textContent = 'Version: unknown';
+        });
 });

@@ -327,6 +327,18 @@ async def clear_cache(pattern: Optional[str] = None):
     cache_manager.invalidate(pattern)
     return {"message": f"Cache cleared{f' (pattern: {pattern})' if pattern else ''}"}
 
+@app.get("/version", tags=["Meta"])
+async def get_version():
+    """
+    Returns the current backend version (commit SHA).
+    """
+    version_file = os.path.join(os.path.dirname(__file__), "version.txt")
+    if os.path.exists(version_file):
+        with open(version_file, "r") as f:
+            version = f.read().strip()
+        return {"version": version}
+    return {"version": "unknown"}
+
 # Error handlers
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
