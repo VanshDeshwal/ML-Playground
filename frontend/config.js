@@ -8,7 +8,7 @@ const CONFIG = {
     
     // For production - Azure backend
     production: {
-        API_BASE_URL: 'https://your-azure-app.azurewebsites.net', // Replace with your Azure URL
+        API_BASE_URL: 'https://api.playground.vanshdeshwal.dev', // Replace with your Azure URL
         ENVIRONMENT: 'production'
     }
 };
