@@ -141,7 +141,7 @@ class CoreAlgorithmDiscovery:
                             friendly_name = "Iterations"
                             description = "Number of training iterations"
                             min_val = 10
-                            max_val = 1000
+                            max_val = 100000
                         elif param_name.lower() in ['tol', 'tolerance']:
                             friendly_name = "Tolerance"
                             description = "Convergence tolerance"
