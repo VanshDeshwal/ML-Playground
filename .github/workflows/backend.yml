@@ -34,7 +34,7 @@ jobs:
       - name: Build and push Docker image (with version tag)
         run: |
           SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
-          docker build -t ${{ secrets.AZURE_ACR_NAME }}.azurecr.io/ml-playground:latest -t ${{ secrets.AZURE_ACR_NAME }}.azurecr.io/ml-playground:$SHORT_SHA ./backend
+          docker build -f ./backend/Dockerfile -t ${{ secrets.AZURE_ACR_NAME }}.azurecr.io/ml-playground:latest -t ${{ secrets.AZURE_ACR_NAME }}.azurecr.io/ml-playground:$SHORT_SHA .
           docker push ${{ secrets.AZURE_ACR_NAME }}.azurecr.io/ml-playground:latest
           docker push ${{ secrets.AZURE_ACR_NAME }}.azurecr.io/ml-playground:$SHORT_SHA
 

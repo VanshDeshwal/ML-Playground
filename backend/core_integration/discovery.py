@@ -17,9 +17,14 @@ class CoreAlgorithmDiscovery:
     
     def __init__(self, core_path: str = None):
         if core_path is None:
-            # Default to ../core directory relative to backend
-            backend_dir = Path(__file__).parent.parent
-            self.core_path = backend_dir.parent / "core"
+            # First try ./core (for Docker container)
+            container_core = Path("./core")
+            if container_core.exists():
+                self.core_path = container_core
+            else:
+                # Fallback to ../core directory relative to backend (for local development)
+                backend_dir = Path(__file__).parent.parent
+                self.core_path = backend_dir.parent / "core"
         else:
             self.core_path = Path(core_path)
         

@@ -5,14 +5,17 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy requirements first (for faster rebuilds)
-COPY requirements.txt .
+COPY backend/requirements.txt .
 
 # Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of your code
-COPY . .
+# Copy the backend code
+COPY backend/ .
+
+# Copy the core algorithms directory
+COPY core/ ./core/
 
 # Expose port 8000 (for FastAPI)
 EXPOSE 8000
