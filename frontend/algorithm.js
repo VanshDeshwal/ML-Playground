@@ -31,8 +31,8 @@ class AlgorithmPageApp {
         // Setup event listeners
         this.setupEventListeners();
         
-        // Initialize enhanced UI components
-        this.initializeEnhancedUI();
+        // Initialize enhanced UI components (async but not awaited for faster page load)
+        this.initializeEnhancedUI().catch(console.error);
     }
 
     async checkBackendConnection() {
@@ -248,8 +248,19 @@ class AlgorithmPageApp {
 
     async initializeEnhancedUI() {
         try {
-            // Initialize enhanced results display
-            this.enhancedResultsDisplay = new EnhancedResultsDisplay('enhanced-results-display');
+            console.log('🔧 Initializing Enhanced UI...');
+            
+            // Get the actual DOM element for enhanced results display
+            const enhancedResultsContainer = document.getElementById('enhanced-results-display');
+            console.log('📦 Found container element:', enhancedResultsContainer, typeof enhancedResultsContainer);
+            
+            if (!enhancedResultsContainer) {
+                console.warn('Enhanced results display container not found');
+                return;
+            }
+            
+            // Initialize enhanced results display with DOM element
+            this.enhancedResultsDisplay = new EnhancedResultsDisplay(enhancedResultsContainer);
             
             console.log('Enhanced UI components initialized successfully');
         } catch (error) {
@@ -308,6 +319,12 @@ class AlgorithmPageApp {
             // Use enhanced training API for rich results
             const results = await window.apiService.trainAlgorithm(this.algorithmId, hyperparameters);
             console.log('Training results received:', results);
+            
+            // Ensure enhanced UI is properly initialized
+            if (!this.enhancedResultsDisplay && results.success) {
+                console.log('🔄 Enhanced display not ready, initializing now...');
+                await this.initializeEnhancedUI();
+            }
             
             // Display results using enhanced UI if available
             if (this.enhancedResultsDisplay && results.success) {
