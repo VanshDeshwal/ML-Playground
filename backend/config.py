@@ -32,14 +32,19 @@ class Settings:
         "http://localhost:8080",      # Alternative local port
         "http://127.0.0.1:3000",      # Local IP
         "http://127.0.0.1:8080",      # Alternative local IP
-        "https://*.github.io",        # GitHub Pages (all subdomains)
-        "https://vansdeshwal.github.io",  # Your specific GitHub Pages URL
+        "https://vanshdeshwal.github.io",  # Your specific GitHub Pages URL
         "https://playground.vanshdeshwal.dev",  # Your custom domain
         "https://vanshdeshwal.dev",   # Root domain (if needed)
+        "*"  # Allow all origins for development (remove in production)
     ]
     CORS_CREDENTIALS = True
     CORS_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     CORS_HEADERS = ["Content-Type", "Authorization", "X-Requested-With"]
+    
+    @property
+    def cors_origins(self):
+        """Get CORS origins (lowercase property for compatibility)"""
+        return self.CORS_ORIGINS
 
 @lru_cache()
 def get_settings() -> Settings:

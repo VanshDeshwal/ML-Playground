@@ -9,9 +9,9 @@ class AlgorithmPageApp {
     }
 
     async init() {
-        // Get algorithm ID from URL parameters
+        // Get algorithm ID from URL parameters (support both 'id' and 'algorithm')
         const urlParams = new URLSearchParams(window.location.search);
-        this.algorithmId = urlParams.get('id');
+        this.algorithmId = urlParams.get('id') || urlParams.get('algorithm');
         
         if (!this.algorithmId) {
             this.showError('No algorithm ID provided. Redirecting to homepage...');
@@ -167,6 +167,40 @@ class AlgorithmPageApp {
     setupEventListeners() {
         const trainBtn = document.getElementById('train-btn');
         trainBtn.addEventListener('click', () => this.startTraining());
+        
+        const viewCodeBtn = document.getElementById('view-code-btn');
+        if (viewCodeBtn) {
+            viewCodeBtn.addEventListener('click', () => {
+                console.log('View Code button clicked!');
+                this.showCodeModal();
+            });
+            console.log('View Code button event listener attached successfully');
+        } else {
+            console.error('View Code button not found!');
+        }
+        
+        // Modal close events
+        const codeModal = document.getElementById('code-modal');
+        const codeModalClose = document.getElementById('code-modal-close');
+        const codeModalBackdrop = document.getElementById('code-modal-backdrop');
+        const copyCodeBtn = document.getElementById('copy-code-btn');
+        
+        if (codeModalClose) {
+            codeModalClose.addEventListener('click', () => this.hideCodeModal());
+        }
+        if (codeModalBackdrop) {
+            codeModalBackdrop.addEventListener('click', () => this.hideCodeModal());
+        }
+        if (copyCodeBtn) {
+            copyCodeBtn.addEventListener('click', () => this.copyCode());
+        }
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && codeModal && !codeModal.classList.contains('hidden')) {
+                this.hideCodeModal();
+            }
+        });
     }
 
     getHyperparameters() {
@@ -426,6 +460,78 @@ class AlgorithmPageApp {
     showError(message) {
         // Simple error display - could be enhanced with a toast system
         alert(message);
+    }
+
+    async showCodeModal() {
+        const modal = document.getElementById('code-modal');
+        const modalTitle = document.getElementById('code-modal-title');
+        const codeFilename = document.getElementById('code-filename');
+        const codeLanguage = document.getElementById('code-language');
+        const codeDescription = document.getElementById('code-description');
+        const codeContent = document.getElementById('code-content');
+
+        try {
+            // Show loading state
+            modalTitle.textContent = 'Loading Code...';
+            codeFilename.textContent = 'loading...';
+            codeLanguage.textContent = 'Python';
+            codeDescription.textContent = 'Fetching implementation details...';
+            codeContent.textContent = 'Loading code snippet...';
+            
+            // Show modal
+            modal.classList.remove('hidden');
+            
+            // Fetch code snippet from API
+            const response = await fetch(`${window.APP_CONFIG.API_BASE_URL}/algorithms/${this.algorithmId}/code`);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch code: ${response.status}`);
+            }
+            
+            const codeData = await response.json();
+            
+            // Update modal content
+            modalTitle.textContent = `${codeData.description}`;
+            codeFilename.textContent = codeData.filename;
+            codeLanguage.textContent = codeData.language.toUpperCase();
+            codeDescription.textContent = codeData.description;
+            codeContent.textContent = codeData.code;
+            
+        } catch (error) {
+            console.error('Failed to load code:', error);
+            modalTitle.textContent = 'Error Loading Code';
+            codeFilename.textContent = 'error';
+            codeDescription.textContent = 'Failed to load the implementation code. Please try again.';
+            codeContent.textContent = `Error: ${error.message}`;
+        }
+    }
+
+    hideCodeModal() {
+        const modal = document.getElementById('code-modal');
+        modal.classList.add('hidden');
+    }
+
+    copyCode() {
+        const codeContent = document.getElementById('code-content');
+        const text = codeContent.textContent;
+        
+        navigator.clipboard.writeText(text).then(() => {
+            const copyBtn = document.getElementById('copy-code-btn');
+            const originalText = copyBtn.innerHTML;
+            
+            // Show success feedback
+            copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            copyBtn.style.background = 'var(--accent-color)';
+            
+            // Reset after 2 seconds
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.style.background = '';
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy code:', err);
+            alert('Failed to copy code to clipboard');
+        });
     }
 }
 

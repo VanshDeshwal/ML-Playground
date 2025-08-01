@@ -50,6 +50,10 @@
                     </div>
                 </div>
                 <div class="algorithm-actions">
+                    <button class="btn btn-outline btn-large" id="view-code-btn">
+                        <i class="fas fa-code"></i>
+                        View Code
+                    </button>
                     <button class="btn btn-primary btn-large" id="train-btn">
                         <i class="fas fa-play"></i>
                         Start Training
@@ -86,6 +90,40 @@
             </section>
         </div>
     </main>
+
+    <!-- Code Viewer Modal -->
+    <div class="modal hidden" id="code-modal">
+        <div class="modal-backdrop" id="code-modal-backdrop"></div>
+        <div class="modal-content code-modal-content">
+            <div class="modal-header">
+                <h2>
+                    <i class="fas fa-code"></i>
+                    <span id="code-modal-title">Algorithm Implementation</span>
+                </h2>
+                <button class="modal-close" id="code-modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="code-info">
+                    <div class="code-meta">
+                        <span class="code-filename" id="code-filename">filename.py</span>
+                        <span class="code-language" id="code-language">Python</span>
+                    </div>
+                    <p class="code-description" id="code-description">Core implementation details</p>
+                </div>
+                <div class="code-container">
+                    <pre class="code-block"><code id="code-content">Loading code...</code></pre>
+                </div>
+                <div class="code-actions">
+                    <button class="btn btn-secondary" id="copy-code-btn">
+                        <i class="fas fa-copy"></i>
+                        Copy Code
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="config.js"></script>

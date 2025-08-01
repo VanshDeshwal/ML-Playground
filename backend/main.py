@@ -1,360 +1,181 @@
-# ML Playground Backend API - Optimized & Modular Architecture
+"""
+ML Playground Backend - New Scalable Architecture
+Clean, modular, and auto-discovering backend for ML algorithms
+"""
 import asyncio
-import time
-import os
+import logging
 from contextlib import asynccontextmanager
-from typing import Dict, List, Any, Optional
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-import uvicorn
 
-# Import our modular components
-from config import get_settings, ALGORITHM_TYPES
-from algorithm_registry import algorithm_registry
-from dataset_manager import dataset_manager
-from cache_manager import cache_manager
+# Import API routers
+from api.algorithms import router as algorithms_router
+from api.training import router as training_router
 
-# Pydantic models for API
-class AlgorithmInfo(BaseModel):
-    id: str
-    name: str
-    type: str
-    description: str
-    hyperparameters: Dict[str, Any]
+# Import services
+from services.algorithm_service import algorithm_service
+from services.snippet_service import snippet_service
 
-class TrainingRequest(BaseModel):
-    algorithm_id: str
-    hyperparameters: Dict[str, Any] = Field(default_factory=dict)
-    dataset_config: Dict[str, Any] = Field(default_factory=dict)
-    dataset_source: str = Field(default="generated", description="generated, builtin, or uploaded")
-    builtin_dataset: Optional[str] = None
-    compare_sklearn: bool = True
-    uploaded_data: Optional[List[Dict[str, Any]]] = None
+# Import models
+from models.responses import CodeSnippet, HealthResponse
 
-class TrainingResponse(BaseModel):
-    algorithm_id: str
-    custom_score: float
-    sklearn_score: Optional[float] = None
-    training_time: float
-    hyperparameters: Dict[str, Any]
-    metrics: Dict[str, float]
-    metadata: Dict[str, Any]
-    visualizations: Optional[Dict[str, Any]] = None
+# Import configuration
+from config import get_settings
 
-class DatasetInfo(BaseModel):
-    builtin_datasets: List[Dict[str, Any]]
-    synthetic_options: Dict[str, Any]
-    upload_formats: List[str]
-    limits: Dict[str, Any]
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
     # Startup
-    print("🚀 Starting ML Playground API...")
+    logger.info("🚀 Starting ML Playground Backend...")
     
-    # Auto-discover algorithms
-    algorithm_registry.auto_discover()
+    # Discover algorithms on startup
+    try:
+        algorithms = await algorithm_service.discover_algorithms()
+        logger.info(f"📚 Discovered {len(algorithms)} algorithms: {list(algorithms.keys())}")
+    except Exception as e:
+        logger.error(f"❌ Error discovering algorithms: {e}")
     
-    # Warm up cache
-    await warm_up_cache()
-    
-    print("✅ ML Playground API ready!")
+    logger.info("✅ Backend startup complete!")
     
     yield
     
     # Shutdown
-    print("🛑 Shutting down ML Playground API...")
+    logger.info("🛑 Shutting down ML Playground Backend...")
+    algorithm_service.clear_algorithm_cache()
+    logger.info("✅ Backend shutdown complete!")
 
-async def warm_up_cache():
-    """Warm up cache with commonly used data"""
-    try:
-        # Pre-load algorithm metadata
-        algorithm_registry.get_all_algorithms()
-        
-        # Pre-load common datasets
-        for dataset_name in ["diabetes", "iris"]:
-            try:
-                await dataset_manager.get_builtin_dataset(dataset_name)
-            except:
-                pass  # Skip if fails
-        
-        print("🔥 Cache warmed up")
-    except Exception as e:
-        print(f"⚠️ Cache warm-up failed: {e}")
-
-# Initialize FastAPI app
-settings = get_settings()
+# Create FastAPI app
 app = FastAPI(
-    title=settings.API_TITLE,
-    version=settings.API_VERSION,
-    description=settings.API_DESCRIPTION,
+    title="ML Playground Backend",
+    description="Scalable, auto-discovering backend for machine learning algorithms",
+    version="2.0.0",
     lifespan=lifespan
 )
 
-# Add CORS middleware
+# Get settings
+settings = get_settings()
+
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=settings.CORS_CREDENTIALS,
-    allow_methods=settings.CORS_METHODS,
-    allow_headers=settings.CORS_HEADERS,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Health check endpoint
-@app.get("/health")
-async def health_check():
-    """Enhanced health check with system status"""
-    cache_stats = cache_manager.stats()
-    
-    return {
-        "status": "healthy",
-        "message": "ML Playground API is running",
-        "version": settings.API_VERSION,
-        "algorithms_loaded": len(algorithm_registry.get_all_algorithms()),
-        "cache_entries": cache_stats["total_entries"],
-        "uptime": time.time() - app.state.start_time if hasattr(app.state, 'start_time') else 0
-    }
+# Include API routers
+app.include_router(algorithms_router)
+app.include_router(training_router)
 
+# Legacy endpoints for backward compatibility
 @app.get("/")
 async def root():
-    """API information and status"""
+    """Root endpoint with API information"""
+    algorithms = await algorithm_service.get_all_algorithms()
     return {
-        "message": "Welcome to ML Playground API",
-        "version": settings.API_VERSION,
-        "description": settings.API_DESCRIPTION,
+        "message": "ML Playground Backend - New Architecture",
+        "version": "2.0.0",
+        "architecture": "modular_auto_discovery",
+        "algorithms_available": len(algorithms),
         "endpoints": {
             "algorithms": "/algorithms",
-            "train": "/train", 
-            "datasets": "/datasets",
-            "health": "/health",
-            "cache": "/cache/stats"
-        },
-        "algorithm_types": list(ALGORITHM_TYPES.keys())
+            "training": "/training",
+            "code_snippets": "/algorithms/{id}/code",
+            "docs": "/docs"
+        }
     }
 
-@app.get("/algorithms", response_model=List[AlgorithmInfo])
-async def get_algorithms():
-    """Get all available algorithms"""
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Health check endpoint"""
     try:
-        algorithms = algorithm_registry.get_all_algorithms()
-        return [AlgorithmInfo(**algo) for algo in algorithms]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get algorithms: {e}")
-
-@app.get("/algorithms/{algorithm_id}", response_model=AlgorithmInfo)
-async def get_algorithm(algorithm_id: str):
-    """Get specific algorithm information"""
-    algorithm = algorithm_registry.get_algorithm(algorithm_id)
-    if not algorithm:
-        raise HTTPException(status_code=404, detail=f"Algorithm '{algorithm_id}' not found")
-    return AlgorithmInfo(**algorithm)
-
-@app.post("/train", response_model=TrainingResponse)
-async def train_algorithm(request: TrainingRequest):
-    """Train an algorithm with high-performance async processing"""
-    start_time = time.time()
-    
-    try:
-        # Validate algorithm exists
-        algorithm_info = algorithm_registry.get_algorithm(request.algorithm_id)
-        if not algorithm_info:
-            raise HTTPException(status_code=404, detail=f"Algorithm '{request.algorithm_id}' not found")
-        
-        # Prepare dataset
-        dataset = await prepare_dataset(request)
-        
-        # Train algorithm
-        training_result = await algorithm_registry.train_algorithm(
-            request.algorithm_id,
-            request.hyperparameters,
-            dataset["X"],
-            dataset.get("y")
+        # Check if we can discover algorithms
+        algorithms = await algorithm_service.discover_algorithms()
+        return HealthResponse(
+            status="healthy",
+            algorithms_discovered=len(algorithms),
+            core_directory_exists=Path("../core").exists()
         )
-        
-        # Compare with sklearn if requested
-        sklearn_score = None
-        if request.compare_sklearn:
-            sklearn_score = await compare_with_sklearn(
-                request.algorithm_id,
-                dataset["X"],
-                dataset.get("y"),
-                algorithm_info["type"]
-            )
-        
-        # Prepare response
-        response = TrainingResponse(
-            algorithm_id=request.algorithm_id,
-            custom_score=training_result["metrics"].get(
-                ALGORITHM_TYPES[algorithm_info["type"]]["default_metric"], 0.0
-            ),
-            sklearn_score=sklearn_score,
-            training_time=training_result["training_time"],
-            hyperparameters=request.hyperparameters,
-            metrics=training_result["metrics"],
-            metadata=training_result["metadata"],
-            visualizations=create_visualizations(training_result, dataset)
-        )
-        
-        return response
-        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Training failed: {e}")
-
-async def prepare_dataset(request: TrainingRequest) -> Dict[str, Any]:
-    """Prepare dataset based on request configuration"""
-    if request.dataset_source == "builtin":
-        if not request.builtin_dataset:
-            raise HTTPException(status_code=400, detail="Builtin dataset name required")
-        return await dataset_manager.get_builtin_dataset(request.builtin_dataset)
-    
-    elif request.dataset_source == "uploaded":
-        if not request.uploaded_data:
-            raise HTTPException(status_code=400, detail="Uploaded data required")
-        # Convert uploaded data to numpy arrays
-        import pandas as pd
-        df = pd.DataFrame(request.uploaded_data)
-        return {
-            "X": df.iloc[:, :-1].values,
-            "y": df.iloc[:, -1].values,
-            "type": "uploaded"
-        }
-    
-    else:  # generated
-        algorithm_info = algorithm_registry.get_algorithm(request.algorithm_id)
-        return await dataset_manager.generate_synthetic_dataset(
-            algorithm_info["type"],
-            **request.dataset_config
+        return JSONResponse(
+            status_code=503,
+            content=HealthResponse(
+                status="unhealthy",
+                error=str(e)
+            ).dict()
         )
 
-async def compare_with_sklearn(algorithm_id: str, X, y, algorithm_type: str) -> float:
-    """Compare custom algorithm with sklearn equivalent"""
+# Legacy algorithm endpoints for backward compatibility
+@app.get("/algorithms")
+async def get_algorithms_legacy():
+    """Legacy endpoint - redirects to new endpoint"""
+    return await algorithms_router.get_algorithms()
+
+@app.get("/algorithms/{algorithm_id}")
+async def get_algorithm_legacy(algorithm_id: str):
+    """Legacy endpoint - redirects to new endpoint"""
+    return await algorithms_router.get_algorithm(algorithm_id)
+
+# Code snippet endpoints (integrating existing snippet service)
+@app.get("/algorithms/{algorithm_id}/code", response_model=CodeSnippet)
+async def get_algorithm_code(algorithm_id: str):
+    """Get code snippet for an algorithm"""
     try:
-        # Get algorithm instance to find sklearn equivalent
-        instance = await algorithm_registry.create_instance(algorithm_id, {})
-        if not instance:
-            return None
+        # Check if algorithm exists
+        if not await algorithm_service.validate_algorithm_exists(algorithm_id):
+            raise HTTPException(status_code=404, detail=f"Algorithm {algorithm_id} not found")
         
-        sklearn_model = instance.get_sklearn_equivalent()
-        if not sklearn_model:
-            return None
+        # Get code snippet using existing service
+        snippet = snippet_service.get_algorithm_snippet(algorithm_id)
         
-        # Train sklearn model
-        loop = asyncio.get_event_loop()
+        if not snippet:
+            raise HTTPException(status_code=404, detail=f"Code snippet not found for {algorithm_id}")
         
-        def train_sklearn():
-            sklearn_model.fit(X, y)
-            predictions = sklearn_model.predict(X)
-            
-            # Calculate score based on algorithm type
-            if algorithm_type == "regression":
-                from sklearn.metrics import r2_score
-                return r2_score(y, predictions)
-            elif algorithm_type == "classification":
-                from sklearn.metrics import accuracy_score
-                return accuracy_score(y, predictions)
-            elif algorithm_type == "clustering":
-                from sklearn.metrics import silhouette_score
-                return silhouette_score(X, predictions) if len(set(predictions)) > 1 else 0.0
-            
-            return 0.0
+        return CodeSnippet(**snippet)
         
-        return await loop.run_in_executor(None, train_sklearn)
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"⚠️ Sklearn comparison failed: {e}")
-        return None
+        raise HTTPException(status_code=500, detail=f"Error fetching code snippet: {str(e)}")
 
-def create_visualizations(training_result: Dict[str, Any], dataset: Dict[str, Any]) -> Dict[str, Any]:
-    """Create visualization data for frontend"""
-    visualizations = {}
-    
-    # Add loss history if available
-    metadata = training_result.get("metadata", {})
-    if "loss_history" in metadata:
-        visualizations["loss_history"] = metadata["loss_history"]
-    
-    # Add feature importance if available
-    if "coefficients" in metadata:
-        visualizations["feature_importance"] = metadata["coefficients"]
-    
-    # Add dataset info
-    visualizations["dataset_info"] = {
-        "n_samples": len(dataset["X"]),
-        "n_features": len(dataset["X"][0]) if len(dataset["X"]) > 0 else 0,
-        "type": dataset.get("type", "unknown")
-    }
-    
-    return visualizations
-
-@app.get("/datasets", response_model=DatasetInfo)
-async def get_datasets():
-    """Get available datasets information"""
+@app.get("/code/available")
+async def get_available_code():
+    """Get list of algorithms with available code snippets"""
     try:
-        datasets_info = dataset_manager.get_available_datasets()
-        return DatasetInfo(**datasets_info)
+        return snippet_service.get_available_snippets()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get datasets: {e}")
-
-@app.post("/upload_dataset")
-async def upload_dataset(file: UploadFile = File(...)):
-    """Upload and process a dataset file"""
-    try:
-        if not file.filename.endswith('.csv'):
-            raise HTTPException(status_code=400, detail="Only CSV files are supported")
-        
-        file_content = await file.read()
-        dataset_info = await dataset_manager.process_uploaded_dataset(file_content)
-        
-        return {
-            "message": "Dataset uploaded successfully",
-            "dataset_info": dataset_info
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
-
-@app.get("/cache/stats")
-async def get_cache_stats():
-    """Get cache statistics"""
-    return cache_manager.stats()
-
-@app.post("/cache/clear")
-async def clear_cache(pattern: Optional[str] = None):
-    """Clear cache entries"""
-    cache_manager.invalidate(pattern)
-    return {"message": f"Cache cleared{f' (pattern: {pattern})' if pattern else ''}"}
-
-@app.get("/version", tags=["Meta"])
-async def get_version():
-    """
-    Returns the current backend version (commit SHA).
-    """
-    version_file = os.path.join(os.path.dirname(__file__), "version.txt")
-    if os.path.exists(version_file):
-        with open(version_file, "r") as f:
-            version = f.read().strip()
-        return {"version": version}
-    return {"version": "unknown"}
+        raise HTTPException(status_code=500, detail=f"Error fetching available snippets: {str(e)}")
 
 # Error handlers
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """Global exception handler"""
-    print(f"❌ Unhandled error: {exc}")
+@app.exception_handler(404)
+async def not_found_handler(request, exc):
     return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error", "type": str(type(exc).__name__)}
+        status_code=404,
+        content={
+            "error": "Not Found",
+            "message": "The requested resource was not found",
+            "available_endpoints": [
+                "/algorithms",
+                "/training",
+                "/health",
+                "/docs"
+            ]
+        }
     )
 
 if __name__ == "__main__":
-    # Set start time for uptime calculation
-    app.state.start_time = time.time()
-    
-    # Run the server
+    import uvicorn
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

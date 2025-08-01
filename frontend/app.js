@@ -10,24 +10,34 @@ class MLPlaygroundApp {
         await this.loadAlgorithms();
     }
 
+    async init() {
+        await this.checkBackendConnection();
+        await this.loadAlgorithms();
+    }
+
     async checkBackendConnection() {
         const statusIndicator = document.getElementById('status-indicator');
         const statusDot = statusIndicator.querySelector('.status-dot');
         const statusText = statusIndicator.querySelector('.status-text');
         
         try {
-            const isConnected = await window.apiService.checkBackendStatus();
+            // Use the new health check method
+            const isHealthy = await window.apiService.checkBackendHealth();
             
-            if (isConnected) {
-                statusDot.className = 'status-dot status-connected';
-                statusText.textContent = 'Backend Connected';
+            if (isHealthy) {
+                statusDot.className = 'status-dot connected';
+                statusText.textContent = 'Connected';
             } else {
-                statusDot.className = 'status-dot status-error';
-                statusText.textContent = 'Backend Disconnected';
+                statusDot.className = 'status-dot disconnected';
+                statusText.textContent = 'Backend Unhealthy';
+                // Clear any stale cache when backend is unhealthy
+                window.apiService.clearCache();
             }
         } catch (error) {
             statusDot.className = 'status-dot status-error';
             statusText.textContent = 'Connection Failed';
+            // Clear cache on connection error
+            window.apiService.clearCache();
         }
     }
 
@@ -35,10 +45,13 @@ class MLPlaygroundApp {
         const gridElement = document.getElementById('algorithms-grid');
         
         try {
+            console.log('DEBUG: Loading algorithms...');
             const algorithms = await window.apiService.getAlgorithms();
+            console.log('DEBUG: Received algorithms:', algorithms);
             this.algorithms = algorithms;
             this.renderAlgorithms(algorithms);
         } catch (error) {
+            console.error('DEBUG: Failed to load algorithms:', error);
             gridElement.innerHTML = `
                 <div class="loading">
                     <i class="fas fa-exclamation-triangle" style="color: var(--error-color);"></i>

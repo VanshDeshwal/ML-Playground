@@ -12,7 +12,6 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from config import get_settings, BUILTIN_DATASETS
-from cache_manager import cache_dataset
 
 class DatasetManager:
     """High-performance dataset management with caching"""
@@ -47,9 +46,8 @@ class DatasetManager:
         
         return BlobsDataset()
     
-    @cache_dataset()
     async def get_builtin_dataset(self, dataset_name: str, **kwargs) -> Dict[str, Any]:
-        """Get a built-in dataset with caching"""
+        """Get a built-in dataset"""
         if dataset_name not in BUILTIN_DATASETS:
             raise ValueError(f"Dataset '{dataset_name}' not found")
         
@@ -83,7 +81,6 @@ class DatasetManager:
         except Exception as e:
             raise RuntimeError(f"Failed to load dataset '{dataset_name}': {e}")
     
-    @cache_dataset()
     async def generate_synthetic_dataset(
         self, 
         algorithm_type: str,

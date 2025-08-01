@@ -1,14 +1,35 @@
-# Models package for ML Playground
-from .linear_regression import MyLinearRegression
-from .logistic_regression import MyLogisticRegression
-from .kmeans import MyKMeans
-from .knn import MyKNN
-from .decision_tree import MyDecisionTree
+# Models package for ML Playground - New Architecture
+# Pydantic models for API requests and responses
+
+from .requests import (
+    TrainingRequest,
+    PredictionRequest,
+    DatasetRequest,
+    AlgorithmRefreshRequest
+)
+
+from .responses import (
+    AlgorithmInfo,
+    AlgorithmsListResponse,
+    TrainingResponse,
+    PredictionResponse,
+    CodeSnippet,
+    HealthResponse,
+    StatusResponse
+)
 
 __all__ = [
-    'MyLinearRegression',
-    'MyLogisticRegression', 
-    'MyKMeans',
-    'MyKNN',
-    'MyDecisionTree'
+    # Request models
+    'TrainingRequest',
+    'PredictionRequest', 
+    'DatasetRequest',
+    'AlgorithmRefreshRequest',
+    # Response models
+    'AlgorithmInfo',
+    'AlgorithmsListResponse',
+    'TrainingResponse',
+    'PredictionResponse',
+    'CodeSnippet',
+    'HealthResponse',
+    'StatusResponse'
 ]
