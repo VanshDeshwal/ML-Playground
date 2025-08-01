@@ -103,7 +103,11 @@ class CoreAlgorithmDiscovery:
         
         # Look for algorithm classes
         for name, obj in inspect.getmembers(module, inspect.isclass):
-            if name.endswith("Algorithm") or name.endswith("Model"):
+            # More flexible class name matching
+            if (name.endswith("Algorithm") or name.endswith("Model") or 
+                name.endswith("Scratch") or name.endswith("Implementation") or
+                any(keyword in name.lower() for keyword in ["regression", "classification", "cluster", "neural", "tree", "forest"])):
+                
                 if hasattr(obj, "get_metadata"):
                     # If class has get_metadata method, use it
                     try:
@@ -119,12 +123,90 @@ class CoreAlgorithmDiscovery:
                     for param_name, param in sig.parameters.items():
                         if param_name == "self":
                             continue
+                        
+                        # Determine parameter type and set smart defaults
+                        param_type = "string"  # default
+                        min_val = None
+                        max_val = None
+                        friendly_name = param_name
+                        description = None
+                        
+                        # Smart naming and defaults based on common ML parameters
+                        if param_name.lower() in ['alpha', 'learning_rate', 'lr']:
+                            friendly_name = "Learning Rate" if 'learning' in param_name.lower() or param_name.lower() == 'lr' else "Alpha"
+                            description = "Controls the step size in optimization"
+                            min_val = 0.001
+                            max_val = 1.0
+                        elif param_name.lower() in ['n_iters', 'n_iterations', 'max_iter', 'epochs']:
+                            friendly_name = "Iterations"
+                            description = "Number of training iterations"
+                            min_val = 10
+                            max_val = 1000
+                        elif param_name.lower() in ['tol', 'tolerance']:
+                            friendly_name = "Tolerance"
+                            description = "Convergence tolerance"
+                            min_val = 1e-6
+                            max_val = 1e-2
+                        elif param_name.lower() in ['regularization', 'reg', 'lambda']:
+                            friendly_name = "Regularization"
+                            description = "Regularization strength"
+                            min_val = 0.0
+                            max_val = 10.0
+                        else:
+                            # Generate friendly name from parameter name
+                            friendly_name = param_name.replace('_', ' ').title()
+                        
+                        if param.annotation != inspect.Parameter.empty:
+                            if param.annotation == float:
+                                param_type = "float"
+                                if min_val is None:
+                                    min_val = 0.0
+                                    max_val = 10.0
+                            elif param.annotation == int:
+                                param_type = "int"
+                                if min_val is None:
+                                    min_val = 1
+                                    max_val = 100
+                            elif param.annotation == bool:
+                                param_type = "boolean"
+                        elif param.default != inspect.Parameter.empty:
+                            # Infer type from default value
+                            if isinstance(param.default, float):
+                                param_type = "float"
+                                if min_val is None:
+                                    min_val = max(0.0, param.default * 0.1)
+                                    max_val = param.default * 10
+                            elif isinstance(param.default, int):
+                                param_type = "int"
+                                if min_val is None:
+                                    min_val = max(1, param.default // 10)
+                                    max_val = param.default * 10
+                            elif isinstance(param.default, bool):
+                                param_type = "boolean"
+                        
+                        # Default ranges for unknown numeric types
+                        if param_type == "float" and min_val is None:
+                            min_val = 0.0
+                            max_val = 10.0
+                        elif param_type == "int" and min_val is None:
+                            min_val = 1
+                            max_val = 100
+                        
                         hyperparams[param_name] = {
-                            "type": "float" if param.annotation == float else "int" if param.annotation == int else "string",
-                            "default": param.default if param.default != inspect.Parameter.empty else None
+                            "type": param_type,
+                            "name": friendly_name,
+                            "description": description,
+                            "default": param.default if param.default != inspect.Parameter.empty else None,
+                            "min": min_val,
+                            "max": max_val
                         }
+                    
                     if hyperparams:
                         metadata["hyperparameters"] = hyperparams
+                        logger.info(f"Found {len(hyperparams)} hyperparameters for {name}: {list(hyperparams.keys())}")
+                
+                # We found a valid algorithm class, break to avoid multiple classes
+                break
         
         # Look for functions that might be algorithms
         for name, obj in inspect.getmembers(module, inspect.isfunction):

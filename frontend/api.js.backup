@@ -1,4 +1,4 @@
-﻿// API service for backend communication
+// API service for backend communication
 class APIService {
     constructor() {
         this.baseURL = window.APP_CONFIG.API_BASE_URL;
@@ -186,6 +186,119 @@ class APIService {
         } catch (error) {
             console.error('Failed to fetch metrics info:', error);
             return null;
+        }
+    }
+
+    // Enhanced training with sklearn comparison and rich results
+    async trainAlgorithmEnhanced(algorithmName, hyperparameters = {}) {
+        try {
+            console.log(`DEBUG: Training ${algorithmName} with enhanced features`, hyperparameters);
+            
+            // Ensure backend is reachable before training
+            await this.ensureBackendConnectivity();
+
+            const algorithmId = algorithmName.toLowerCase().replace(/\s+/g, '_');
+            
+            const response = await fetch(`${this.baseURL}/enhanced-training/${algorithmId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    hyperparameters: hyperparameters
+                }),
+                signal: AbortSignal.timeout(180000) // 3 minute timeout for enhanced training
+            });
+
+            if (!response.ok) {
+                const errorData = await response.text();
+                console.error(`Enhanced training failed with status ${response.status}:`, errorData);
+                throw new Error(`Enhanced training failed: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            
+            // Validate enhanced training result structure
+            if (!result || typeof result.success !== 'boolean') {
+                console.error('Invalid enhanced training result:', result);
+                throw new Error('Invalid enhanced training response format');
+            }
+
+            return result;
+            
+        } catch (error) {
+            console.error(`Failed to train ${algorithmName} with enhanced features:`, error);
+            
+            // Provide user-friendly error messages
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                throw new Error('Cannot connect to backend server for enhanced training. Please check if the backend is running.');
+            } else if (error.name === 'AbortError') {
+                throw new Error('Enhanced training request timed out. The algorithm may be taking too long to train.');
+            } else {
+                throw error;
+            }
+        }
+    }
+
+    // Get available datasets for enhanced training
+    async getAvailableDatasets() {
+        try {
+            console.log('DEBUG: Fetching available datasets');
+            
+            await this.ensureBackendConnectivity();
+
+            const response = await fetch(`${this.baseURL}/enhanced-training/datasets`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                signal: AbortSignal.timeout(10000) // 10 second timeout
+            });
+
+            if (!response.ok) {
+                const errorData = await response.text();
+                console.error(`Failed to fetch datasets with status ${response.status}:`, errorData);
+                throw new Error(`Failed to fetch datasets: ${response.status} ${response.statusText}`);
+            }
+
+            const datasets = await response.json();
+            console.log('DEBUG: Available datasets:', datasets);
+            return datasets;
+            
+        } catch (error) {
+            console.error('Failed to fetch available datasets:', error);
+            throw error;
+        }
+    }
+
+    // Get metrics information for different algorithm types
+    async getMetricsInfo() {
+        try {
+            console.log('DEBUG: Fetching metrics information');
+            
+            await this.ensureBackendConnectivity();
+
+            const response = await fetch(`${this.baseURL}/enhanced-training/metrics-info`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                signal: AbortSignal.timeout(10000) // 10 second timeout
+            });
+
+            if (!response.ok) {
+                const errorData = await response.text();
+                console.error(`Failed to fetch metrics info with status ${response.status}:`, errorData);
+                throw new Error(`Failed to fetch metrics info: ${response.status} ${response.statusText}`);
+            }
+
+            const metricsInfo = await response.json();
+            console.log('DEBUG: Metrics information:', metricsInfo);
+            return metricsInfo;
+            
+        } catch (error) {
+            console.error('Failed to fetch metrics information:', error);
+            throw error;
         }
     }
 

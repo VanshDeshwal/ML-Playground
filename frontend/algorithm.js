@@ -4,6 +4,7 @@ class AlgorithmPageApp {
         this.currentAlgorithm = null;
         this.isTraining = false;
         this.algorithmId = null;
+        this.enhancedResultsDisplay = null;
         
         this.init();
     }
@@ -29,6 +30,9 @@ class AlgorithmPageApp {
         
         // Setup event listeners
         this.setupEventListeners();
+        
+        // Initialize enhanced UI components
+        this.initializeEnhancedUI();
     }
 
     async checkBackendConnection() {
@@ -127,28 +131,59 @@ class AlgorithmPageApp {
     }
 
     createHyperparameterControl(key, param) {
-        const { type, default: defaultValue, min, max, description } = param;
+        const { type, name, default: defaultValue, min, max } = param;
+        const displayName = name || key;
         
         if (type === 'float' || type === 'int') {
             const step = type === 'float' ? '0.001' : '1';
+            const minVal = min !== undefined ? min : (type === 'float' ? 0.0 : 1);
+            const maxVal = max !== undefined ? max : (type === 'float' ? 10.0 : 100);
+            const currentValue = defaultValue !== undefined ? defaultValue : minVal;
+            
             return `
                 <div class="control-group">
                     <label for="${key}" class="control-label">
-                        ${key}
-                        <span class="control-description">${description}</span>
+                        <strong>${displayName}</strong>
+                    </label>
+                    <div class="control-input slider-control">
+                        <input 
+                            type="range" 
+                            id="${key}" 
+                            name="${key}" 
+                            value="${currentValue}" 
+                            min="${minVal}" 
+                            max="${maxVal}" 
+                            step="${step}"
+                            class="slider-input"
+                            oninput="this.nextElementSibling.value = this.value"
+                        >
+                        <input 
+                            type="number" 
+                            value="${currentValue}" 
+                            min="${minVal}" 
+                            max="${maxVal}" 
+                            step="${step}"
+                            class="number-display"
+                            oninput="this.previousElementSibling.value = this.value"
+                        >
+                        <span class="control-range">(${minVal} - ${maxVal})</span>
+                    </div>
+                </div>
+            `;
+        } else if (type === 'boolean') {
+            return `
+                <div class="control-group">
+                    <label for="${key}" class="control-label">
+                        <strong>${displayName}</strong>
                     </label>
                     <div class="control-input">
                         <input 
-                            type="number" 
+                            type="checkbox" 
                             id="${key}" 
                             name="${key}" 
-                            value="${defaultValue}" 
-                            min="${min}" 
-                            max="${max}" 
-                            step="${step}"
-                            class="number-input"
+                            ${defaultValue ? 'checked' : ''}
+                            class="checkbox-input"
                         >
-                        <span class="control-range">Range: ${min} - ${max}</span>
                     </div>
                 </div>
             `;
@@ -160,12 +195,13 @@ class AlgorithmPageApp {
             return `
                 <div class="control-group">
                     <label for="${key}" class="control-label">
-                        ${key}
-                        <span class="control-description">${description}</span>
+                        <strong>${displayName}</strong>
                     </label>
-                    <select id="${key}" name="${key}" class="select-input">
-                        ${options}
-                    </select>
+                    <div class="control-input">
+                        <select id="${key}" name="${key}" class="select-input">
+                            ${options}
+                        </select>
+                    </div>
                 </div>
             `;
         }
@@ -210,15 +246,43 @@ class AlgorithmPageApp {
         });
     }
 
+    async initializeEnhancedUI() {
+        try {
+            // Initialize enhanced results display
+            this.enhancedResultsDisplay = new EnhancedResultsDisplay('enhanced-results-display');
+            
+            console.log('Enhanced UI components initialized successfully');
+        } catch (error) {
+            console.error('Failed to initialize enhanced UI components:', error);
+            // Fallback to basic UI if enhanced components fail
+        }
+    }
+
     getHyperparameters() {
         const hyperparameters = {};
-        const controls = document.querySelectorAll('#hyperparameter-controls input, #hyperparameter-controls select');
         
-        controls.forEach(control => {
-            const value = control.type === 'number' ? 
-                (control.step === '1' ? parseInt(control.value) : parseFloat(control.value)) : 
-                control.value;
-            hyperparameters[control.name] = value;
+        // Handle slider controls (range inputs)
+        const sliders = document.querySelectorAll('#hyperparameter-controls input[type="range"]');
+        sliders.forEach(slider => {
+            const value = slider.step === '1' ? 
+                parseInt(slider.value) : 
+                parseFloat(slider.value);
+            hyperparameters[slider.name] = value;
+        });
+        
+        // Handle other controls (checkboxes, selects, number inputs not paired with sliders)
+        const otherControls = document.querySelectorAll('#hyperparameter-controls input[type="checkbox"], #hyperparameter-controls select, #hyperparameter-controls input[type="number"]:not(.number-display)');
+        otherControls.forEach(control => {
+            if (control.type === 'checkbox') {
+                hyperparameters[control.name] = control.checked;
+            } else if (control.type === 'number') {
+                const value = control.step === '1' ? 
+                    parseInt(control.value) : 
+                    parseFloat(control.value);
+                hyperparameters[control.name] = value;
+            } else {
+                hyperparameters[control.name] = control.value;
+            }
         });
         
         return hyperparameters;
@@ -240,18 +304,39 @@ class AlgorithmPageApp {
 
         try {
             const hyperparameters = this.getHyperparameters();
+            
+            // Use enhanced training API for rich results
             const results = await window.apiService.trainAlgorithm(this.algorithmId, hyperparameters);
-            this.displayResults(results);
+            console.log('Training results received:', results);
+            
+            // Display results using enhanced UI if available
+            if (this.enhancedResultsDisplay && results.success) {
+                console.log('Using enhanced results display');
+                this.enhancedResultsDisplay.displayResults(results);
+                resultsSection.classList.remove('hidden');
+            } else {
+                console.log('Using fallback display. Enhanced display available:', !!this.enhancedResultsDisplay, 'Results success:', results.success);
+                // Fallback to basic display
+                this.displayResults(results);
+            }
+            
         } catch (error) {
             console.error('Training failed:', error);
-            // Show detailed error message from the API response
-            let errorMessage = 'Training failed. ';
-            if (error.message && error.message.includes('HTTP error!')) {
-                errorMessage += error.message;
+            
+            // Show error using enhanced UI if available
+            if (this.enhancedResultsDisplay) {
+                this.enhancedResultsDisplay.displayError(error.message || 'Training failed');
+                resultsSection.classList.remove('hidden');
             } else {
-                errorMessage += `Error: ${error.message || 'Unknown error'}`;
+                // Fallback error display
+                let errorMessage = 'Training failed. ';
+                if (error.message && error.message.includes('HTTP error!')) {
+                    errorMessage += error.message;
+                } else {
+                    errorMessage += `Error: ${error.message || 'Unknown error'}`;
+                }
+                this.showError(errorMessage);
             }
-            this.showError(errorMessage);
         } finally {
             // Reset UI state
             this.isTraining = false;
@@ -263,7 +348,19 @@ class AlgorithmPageApp {
 
     displayResults(results) {
         const resultsSection = document.getElementById('results-section');
-        const resultsContent = document.getElementById('results-content');
+        const resultsContent = document.getElementById('enhanced-results-display');
+        
+        // If enhanced-results-display doesn't exist, fallback to results-content
+        if (!resultsContent) {
+            console.warn('Enhanced results display not found, using fallback');
+            const fallbackContent = document.getElementById('results-content');
+            if (fallbackContent) {
+                // Use basic display
+                this.displayBasicResults(results, fallbackContent);
+                resultsSection.classList.remove('hidden');
+            }
+            return;
+        }
         
         // Safely get values with fallbacks
         const safeNumber = (value, decimals = 4) => {
@@ -323,6 +420,28 @@ class AlgorithmPageApp {
         
         resultsContent.innerHTML = formattedHTML;
         resultsSection.classList.remove('hidden');
+    }
+
+    // Fallback method for basic results display
+    displayBasicResults(results, container) {
+        const safeNumber = (value, decimals = 4) => {
+            return (typeof value === 'number') ? value.toFixed(decimals) : 'N/A';
+        };
+        
+        const basicHTML = `
+            <div class="basic-results">
+                <h3>Training Results</h3>
+                <p><strong>Success:</strong> ${results.success ? 'Yes' : 'No'}</p>
+                ${results.error ? `<p class="error"><strong>Error:</strong> ${results.error}</p>` : ''}
+                ${results.your_implementation && results.your_implementation.metrics ? `
+                    <div class="metrics">
+                        <h4>Performance Metrics</h4>
+                        <pre>${JSON.stringify(results.your_implementation.metrics, null, 2)}</pre>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        container.innerHTML = basicHTML;
     }
     
     renderMetrics(metrics) {

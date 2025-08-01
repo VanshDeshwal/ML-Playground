@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Algorithm Training - ML Playground</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="enhanced-styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -62,9 +63,9 @@
                 </div>
             </section>
 
-            <!-- Training Configuration -->
+            <!-- Hyperparameters -->
             <section class="training-config" id="training-config">
-                <h3><i class="fas fa-sliders-h"></i> Training Configuration</h3>
+                <h3><i class="fas fa-cogs"></i> Hyperparameters</h3>
                 <div class="config-grid" id="hyperparameter-controls">
                     <!-- Hyperparameter controls will be generated here -->
                 </div>
@@ -85,8 +86,8 @@
 
             <!-- Training Results -->
             <section class="results-section hidden" id="results-section">
-                <div id="results-content">
-                    <!-- Results will be populated here -->
+                <div id="enhanced-results-display">
+                    <!-- Enhanced training results will be populated here -->
                 </div>
             </section>
         </div>
@@ -132,6 +133,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
     <script src="config.js"></script>
     <script src="api.js"></script>
+    <script src="enhanced-ui.js"></script>
     <script src="algorithm.js"></script>
 </body>
 </html>

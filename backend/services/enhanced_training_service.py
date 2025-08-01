@@ -101,11 +101,15 @@ class ChartDataGenerator:
         
         charts = ChartData()
         
+        # Helper function to safely convert to list
+        def safe_tolist(obj):
+            return obj.tolist() if hasattr(obj, 'tolist') else obj
+        
         # Scatter plot: actual vs predictions
         charts.scatter_plot = {
-            "actual": y_test.tolist(),
-            "your_predictions": your_predictions.tolist(),
-            "sklearn_predictions": sklearn_predictions.tolist(),
+            "actual": safe_tolist(y_test),
+            "your_predictions": safe_tolist(your_predictions),
+            "sklearn_predictions": safe_tolist(sklearn_predictions),
             "x_label": "Actual Values",
             "y_label": "Predicted Values",
             "title": f"Predictions vs Actual - {dataset_info.name.title()}"
@@ -126,10 +130,10 @@ class ChartDataGenerator:
         sklearn_residuals = y_test - sklearn_predictions
         
         charts.residuals_plot = {
-            "your_predictions": your_predictions.tolist(),
-            "your_residuals": your_residuals.tolist(),
-            "sklearn_predictions": sklearn_predictions.tolist(),
-            "sklearn_residuals": sklearn_residuals.tolist(),
+            "your_predictions": safe_tolist(your_predictions),
+            "your_residuals": safe_tolist(your_residuals),
+            "sklearn_predictions": safe_tolist(sklearn_predictions),
+            "sklearn_residuals": safe_tolist(sklearn_residuals),
             "x_label": "Predicted Values",
             "y_label": "Residuals",
             "title": "Residual Analysis"
@@ -141,10 +145,10 @@ class ChartDataGenerator:
             your_line = your_model.predict(x_range)
             
             charts.regression_line = {
-                "x_data": X_test.flatten().tolist(),
-                "y_data": y_test.tolist(),
-                "x_line": x_range.flatten().tolist(),
-                "y_line": your_line.tolist(),
+                "x_data": safe_tolist(X_test.flatten()),
+                "y_data": safe_tolist(y_test),
+                "x_line": safe_tolist(x_range.flatten()),
+                "y_line": safe_tolist(your_line),
                 "x_label": dataset_info.feature_names[0] if dataset_info.feature_names else "Feature",
                 "y_label": dataset_info.target_name,
                 "title": f"Linear Regression Fit - {dataset_info.name.title()}"
@@ -164,6 +168,10 @@ class ChartDataGenerator:
         
         charts = ChartData()
         
+        # Helper function to safely convert to list
+        def safe_tolist(obj):
+            return obj.tolist() if hasattr(obj, 'tolist') else obj
+        
         # Confusion matrix for your implementation
         from sklearn.metrics import confusion_matrix
         
@@ -171,17 +179,17 @@ class ChartDataGenerator:
         sklearn_cm = confusion_matrix(y_test, sklearn_predictions)
         
         charts.confusion_matrix = {
-            "your_matrix": your_cm.tolist(),
-            "sklearn_matrix": sklearn_cm.tolist(),
+            "your_matrix": safe_tolist(your_cm),
+            "sklearn_matrix": safe_tolist(sklearn_cm),
             "labels": [f"Class {i}" for i in range(len(your_cm))]
         }
         
         # If 2D data, create decision boundary visualization (simplified)
         if X_test.shape[1] == 2:
             charts.decision_boundary = {
-                "x_data": X_test[:, 0].tolist(),
-                "y_data": X_test[:, 1].tolist(),
-                "labels": y_test.tolist(),
+                "x_data": safe_tolist(X_test[:, 0]),
+                "y_data": safe_tolist(X_test[:, 1]),
+                "labels": safe_tolist(y_test),
                 "x_label": dataset_info.feature_names[0] if dataset_info.feature_names else "Feature 1",
                 "y_label": dataset_info.feature_names[1] if dataset_info.feature_names else "Feature 2",
                 "title": f"Classification Results - {dataset_info.name.title()}"
@@ -202,12 +210,16 @@ class ChartDataGenerator:
         
         charts = ChartData()
         
+        # Helper function to safely convert to list
+        def safe_tolist(obj):
+            return obj.tolist() if hasattr(obj, 'tolist') else obj
+        
         # Cluster visualization (using first 2 features)
         charts.cluster_plot = {
-            "x_data": X_test[:, 0].tolist(),
-            "y_data": X_test[:, 1].tolist() if X_test.shape[1] > 1 else [0] * len(X_test),
-            "your_labels": your_predictions.tolist(),
-            "sklearn_labels": sklearn_predictions.tolist(),
+            "x_data": safe_tolist(X_test[:, 0]),
+            "y_data": safe_tolist(X_test[:, 1]) if X_test.shape[1] > 1 else [0] * len(X_test),
+            "your_labels": safe_tolist(your_predictions),
+            "sklearn_labels": safe_tolist(sklearn_predictions),
             "x_label": dataset_info.feature_names[0] if dataset_info.feature_names else "Feature 1",
             "y_label": dataset_info.feature_names[1] if dataset_info.feature_names and len(dataset_info.feature_names) > 1 else "Feature 2",
             "title": f"Clustering Results - {dataset_info.name.title()}"
@@ -215,7 +227,7 @@ class ChartDataGenerator:
         
         # Cluster centers
         if hasattr(your_model, 'cluster_centers_'):
-            charts.cluster_centers = your_model.cluster_centers_.tolist()
+            charts.cluster_centers = safe_tolist(your_model.cluster_centers_)
         
         return charts
 
@@ -396,23 +408,39 @@ class EnhancedTrainingService:
         metrics_dict = result_dict["metrics"]
         algorithm_metrics = AlgorithmMetrics(**metrics_dict)
         
+        # Convert numpy arrays to Python lists
+        predictions = result_dict["predictions"]
+        if hasattr(predictions, 'tolist'):
+            predictions = predictions.tolist()
+        
         algorithm_result = AlgorithmResult(
             metrics=algorithm_metrics,
-            predictions=result_dict["predictions"]
+            predictions=predictions
         )
         
-        # Add optional fields if they exist
+        # Add optional fields if they exist, converting numpy arrays to lists
         if "coefficients" in result_dict:
-            algorithm_result.coefficients = result_dict["coefficients"]
+            coefficients = result_dict["coefficients"]
+            if hasattr(coefficients, 'tolist'):
+                coefficients = coefficients.tolist()
+            algorithm_result.coefficients = coefficients
+            
         if "intercept" in result_dict:
             algorithm_result.intercept = result_dict["intercept"]
+            
         if "feature_importance" in result_dict:
-            algorithm_result.feature_importance = result_dict["feature_importance"]
+            feature_importance = result_dict["feature_importance"]
+            if hasattr(feature_importance, 'tolist'):
+                feature_importance = feature_importance.tolist()
+            algorithm_result.feature_importance = feature_importance
         
         # Add training history if available
         model = result_dict.get("model")
         if model and hasattr(model, 'loss_history'):
-            algorithm_result.training_history = model.loss_history
+            training_history = model.loss_history
+            if hasattr(training_history, 'tolist'):
+                training_history = training_history.tolist()
+            algorithm_result.training_history = training_history
         
         return algorithm_result
     

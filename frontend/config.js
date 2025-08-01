@@ -19,7 +19,8 @@ const isLocalhost = window.location.hostname === 'localhost' ||
                    window.location.hostname === '127.0.0.1' || 
                    window.location.hostname === '';
 
-const CURRENT_CONFIG = isLocalhost ? CONFIG.development : CONFIG.production;
+// Temporarily force development mode for testing
+const CURRENT_CONFIG = CONFIG.development;  // Always use localhost backend
 
 // Export for use in other files
 window.APP_CONFIG = CURRENT_CONFIG;
