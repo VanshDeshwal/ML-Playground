@@ -58,3 +58,34 @@ backend/data/*.csv
 
 # Windows
 Thumbs.db
+
+# Additional cache and temporary files prevention
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+.#*
+#*#
+
+# VS Code specific cache
+.vscode/workspaceStorage/
+.vscode/.ropeproject/
+
+# Python cache and compiled
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.cache/
+.pytest_cache/
+
+# Node.js (if any)
+node_modules/
+.npm/
+.node_repl_history
+
+# Temporary and backup files
+*_backup.*
+*_old.*
+*_temp.*
