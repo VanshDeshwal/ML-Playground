@@ -8,8 +8,14 @@ class SnippetService:
     """Service to extract code snippets from core algorithm implementations"""
     
     def __init__(self):
-        # Path to core folder relative to backend
-        self.core_path = Path(__file__).parent.parent.parent / "core"
+        # Path to core folder - handle both local and container environments
+        # First try ./core (for Docker container)
+        container_core = Path("./core")
+        if container_core.exists():
+            self.core_path = container_core
+        else:
+            # Fallback to ../core directory relative to backend (for local development)
+            self.core_path = Path(__file__).parent.parent.parent / "core"
     
     def get_algorithm_snippet(self, algorithm_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -22,16 +28,8 @@ class SnippetService:
             Dictionary containing code snippet and metadata, or None if not found
         """
         try:
-            # Map algorithm_id to core file
-            file_mapping = {
-                'linear_regression': 'linear_regression.py',
-                # Add more mappings as you create more core algorithms
-            }
-            
-            if algorithm_id not in file_mapping:
-                return None
-            
-            file_path = self.core_path / file_mapping[algorithm_id]
+            # Try to find the algorithm file - assume it matches the algorithm_id
+            file_path = self.core_path / f"{algorithm_id}.py"
             
             if not file_path.exists():
                 return None
@@ -46,7 +44,7 @@ class SnippetService:
             if snippet:
                 return {
                     'algorithm_id': algorithm_id,
-                    'filename': file_mapping[algorithm_id],
+                    'filename': f"{algorithm_id}.py",
                     'code': snippet,
                     'language': 'python',
                     'description': f'Core implementation of {algorithm_id.replace("_", " ").title()}'
@@ -115,23 +113,27 @@ class SnippetService:
         """
         available = {}
         
-        # Currently supported algorithms
-        algorithm_ids = ['linear_regression']  # Expand this as you add more
-        
-        for algo_id in algorithm_ids:
-            snippet_info = self.get_algorithm_snippet(algo_id)
-            if snippet_info:
-                available[algo_id] = {
-                    'filename': snippet_info['filename'],
-                    'description': snippet_info['description'],
-                    'available': True
-                }
-            else:
-                available[algo_id] = {
-                    'filename': f'{algo_id}.py',
-                    'description': f'{algo_id.replace("_", " ").title()} implementation',
-                    'available': False
-                }
+        try:
+            # Dynamically discover algorithm files in core directory
+            if self.core_path.exists():
+                for file_path in self.core_path.glob("*.py"):
+                    algo_id = file_path.stem  # filename without extension
+                    
+                    snippet_info = self.get_algorithm_snippet(algo_id)
+                    if snippet_info:
+                        available[algo_id] = {
+                            'filename': snippet_info['filename'],
+                            'description': snippet_info['description'],
+                            'available': True
+                        }
+                    else:
+                        available[algo_id] = {
+                            'filename': f'{algo_id}.py',
+                            'description': f'{algo_id.replace("_", " ").title()} implementation',
+                            'available': False
+                        }
+        except Exception as e:
+            print(f"Error discovering available snippets: {e}")
         
         return available
 
