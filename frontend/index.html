@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
 </head>
 <body>
     <header class="header">
@@ -19,7 +22,6 @@
                 <div class="status-indicator" id="status-indicator">
                     <span class="status-dot"></span>
                     <span class="status-text">Connecting...</span>
-                    <button onclick="window.apiService.clearCache(); app.loadAlgorithms();" style="margin-left: 10px; padding: 5px 10px; border: 1px solid #ccc; background: white; cursor: pointer; border-radius: 4px;">Clear Cache</button>
                 </div>
             </div>
         </div>
@@ -48,6 +50,9 @@
         </div>
     </footer>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
     <script src="config.js"></script>
     <script src="api.js"></script>
     <script src="app.js"></script>

@@ -171,10 +171,8 @@ class AlgorithmPageApp {
         const viewCodeBtn = document.getElementById('view-code-btn');
         if (viewCodeBtn) {
             viewCodeBtn.addEventListener('click', () => {
-                console.log('View Code button clicked!');
                 this.showCodeModal();
             });
-            console.log('View Code button event listener attached successfully');
         } else {
             console.error('View Code button not found!');
         }
@@ -233,10 +231,7 @@ class AlgorithmPageApp {
 
         try {
             const hyperparameters = this.getHyperparameters();
-            console.log('Training with hyperparameters:', hyperparameters);
-            console.log('Algorithm ID:', this.algorithmId);
             const results = await window.apiService.trainAlgorithm(this.algorithmId, hyperparameters);
-            console.log('Training results:', results);
             this.displayResults(results);
         } catch (error) {
             console.error('Training failed:', error);
@@ -495,7 +490,18 @@ class AlgorithmPageApp {
             codeFilename.textContent = codeData.filename;
             codeLanguage.textContent = codeData.language.toUpperCase();
             codeDescription.textContent = codeData.description;
+            
+            // Set the code content and apply syntax highlighting
             codeContent.textContent = codeData.code;
+            
+            // Determine the Prism language class based on the file extension or language
+            const languageClass = this.getPrismLanguageClass(codeData.language, codeData.filename);
+            codeContent.className = `language-${languageClass}`;
+            
+            // Apply Prism syntax highlighting
+            if (window.Prism) {
+                window.Prism.highlightElement(codeContent);
+            }
             
         } catch (error) {
             console.error('Failed to load code:', error);
@@ -503,7 +509,69 @@ class AlgorithmPageApp {
             codeFilename.textContent = 'error';
             codeDescription.textContent = 'Failed to load the implementation code. Please try again.';
             codeContent.textContent = `Error: ${error.message}`;
+            // Reset to default language class on error
+            codeContent.className = 'language-python';
         }
+    }
+
+    // Helper function to map languages/file extensions to Prism language classes
+    getPrismLanguageClass(language, filename) {
+        // First try to map by language
+        const languageMap = {
+            'python': 'python',
+            'javascript': 'javascript',
+            'typescript': 'typescript',
+            'java': 'java',
+            'cpp': 'cpp',
+            'c++': 'cpp',
+            'c': 'c',
+            'r': 'r',
+            'sql': 'sql',
+            'json': 'json',
+            'yaml': 'yaml',
+            'yml': 'yaml',
+            'xml': 'xml',
+            'html': 'html',
+            'css': 'css',
+            'markdown': 'markdown',
+            'bash': 'bash',
+            'shell': 'bash'
+        };
+
+        // Check language first
+        if (language && languageMap[language.toLowerCase()]) {
+            return languageMap[language.toLowerCase()];
+        }
+
+        // Fall back to file extension
+        if (filename) {
+            const extensionMap = {
+                '.py': 'python',
+                '.js': 'javascript',
+                '.ts': 'typescript',
+                '.java': 'java',
+                '.cpp': 'cpp',
+                '.c': 'c',
+                '.r': 'r',
+                '.sql': 'sql',
+                '.json': 'json',
+                '.yaml': 'yaml',
+                '.yml': 'yaml',
+                '.xml': 'xml',
+                '.html': 'html',
+                '.css': 'css',
+                '.md': 'markdown',
+                '.sh': 'bash'
+            };
+
+            const extension = filename.toLowerCase().match(/\.[^.]+$/);
+            if (extension && extensionMap[extension[0]]) {
+                return extensionMap[extension[0]];
+            }
+        }
+
+        // Default to python for ML playground
+        return 'python';
     }
 
     hideCodeModal() {

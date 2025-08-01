@@ -25,13 +25,19 @@ class APIService {
         
         // Only return cached data if we previously had a successful response
         if (this.cache.has(cacheKey)) {
-            console.log('DEBUG: Returning cached algorithms');
             const cachedData = this.cache.get(cacheKey);
-            return cachedData.algorithms || cachedData;  // Handle both old and new cache formats
+            // Always return an array - handle both old and new cache formats
+            if (Array.isArray(cachedData)) {
+                return cachedData;  // Already an array
+            } else if (cachedData && Array.isArray(cachedData.algorithms)) {
+                return cachedData.algorithms;  // Extract algorithms array
+            } else {
+                console.warn('Invalid cached data, clearing cache');
+                this.cache.delete(cacheKey);
+            }
         }
 
         try {
-            console.log('DEBUG: Calling algorithms endpoint:', `${this.baseURL}/algorithms/`);
             const response = await fetch(`${this.baseURL}/algorithms/`, {
                 method: 'GET',
                 headers: {
@@ -57,8 +63,7 @@ class APIService {
             }
 
             // Only cache successful responses with valid data
-            console.log(`DEBUG: Successfully fetched ${data.algorithms.length} algorithms, caching result`);
-            this.cache.set(cacheKey, data);
+            this.cache.set(cacheKey, data.algorithms);  // Cache just the algorithms array
             return data.algorithms;  // Return just the algorithms array
             
         } catch (error) {
@@ -66,7 +71,6 @@ class APIService {
             
             // Clear any stale cache on error
             if (this.cache.has(cacheKey)) {
-                console.log('DEBUG: Clearing stale cache due to error');
                 this.cache.delete(cacheKey);
             }
             
@@ -91,8 +95,6 @@ class APIService {
                 compare_sklearn: true
             };
 
-            console.log('Sending training request:', requestBody);
-
             const response = await fetch(`${this.baseURL}/training/train`, {
                 method: 'POST',
                 headers: {
@@ -102,8 +104,6 @@ class APIService {
                 // Add timeout for training requests
                 signal: AbortSignal.timeout(30000) // 30 second timeout for training
             });
-
-            console.log('Training response status:', response.status);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -127,7 +127,6 @@ class APIService {
                 throw new Error('Invalid training response format');
             }
 
-            console.log('Training API success response:', result);
             return result;
             
         } catch (error) {
@@ -146,7 +145,6 @@ class APIService {
 
     // Clear cache when needed
     clearCache() {
-        console.log('DEBUG: Clearing all cache');
         this.cache.clear();
     }
 

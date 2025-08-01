@@ -10,11 +10,6 @@ class MLPlaygroundApp {
         await this.loadAlgorithms();
     }
 
-    async init() {
-        await this.checkBackendConnection();
-        await this.loadAlgorithms();
-    }
-
     async checkBackendConnection() {
         const statusIndicator = document.getElementById('status-indicator');
         const statusDot = statusIndicator.querySelector('.status-dot');
@@ -45,13 +40,11 @@ class MLPlaygroundApp {
         const gridElement = document.getElementById('algorithms-grid');
         
         try {
-            console.log('DEBUG: Loading algorithms...');
             const algorithms = await window.apiService.getAlgorithms();
-            console.log('DEBUG: Received algorithms:', algorithms);
             this.algorithms = algorithms;
             this.renderAlgorithms(algorithms);
         } catch (error) {
-            console.error('DEBUG: Failed to load algorithms:', error);
+            console.error('Failed to load algorithms:', error);
             gridElement.innerHTML = `
                 <div class="loading">
                     <i class="fas fa-exclamation-triangle" style="color: var(--error-color);"></i>
