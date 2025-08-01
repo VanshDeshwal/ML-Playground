@@ -28,10 +28,10 @@
                         <i class="fas fa-arrow-left"></i>
                         Back to Algorithms
                     </a>
-                    <div class="status-indicator" id="status-indicator">
+                    <button class="status-button" id="status-button" type="button">
                         <span class="status-dot"></span>
                         <span class="status-text">Connecting...</span>
-                    </div>
+                    </button>
                 </div>
             </nav>
         </div>
@@ -47,16 +47,14 @@
                         <span id="algorithm-name">Loading...</span>
                     </h1>
                     <p id="algorithm-description">Loading algorithm details...</p>
-                    <div class="algorithm-meta">
-                        <span class="algorithm-type-badge" id="algorithm-type">...</span>
-                        <span class="algorithm-id" id="algorithm-id">...</span>
+                    <div class="algorithm-code-action">
+                        <button class="btn btn-outline" id="view-code-btn">
+                            <i class="fas fa-code"></i>
+                            View Code
+                        </button>
                     </div>
                 </div>
                 <div class="algorithm-actions">
-                    <button class="btn btn-outline btn-large" id="view-code-btn">
-                        <i class="fas fa-code"></i>
-                        View Code
-                    </button>
                     <button class="btn btn-primary btn-large" id="train-btn">
                         <i class="fas fa-play"></i>
                         Start Training

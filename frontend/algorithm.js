@@ -32,18 +32,25 @@ class AlgorithmPageApp {
     }
 
     async checkBackendConnection() {
-        const statusIndicator = document.getElementById('status-indicator');
-        const statusDot = statusIndicator.querySelector('.status-dot');
-        const statusText = statusIndicator.querySelector('.status-text');
+        const statusButton = document.getElementById('status-button');
+        const statusDot = statusButton.querySelector('.status-dot');
+        const statusText = statusButton.querySelector('.status-text');
+        
+        // Add click listener to navigate to API docs
+        statusButton.onclick = () => {
+            // Get the API base URL and append /docs
+            const apiBaseUrl = window.apiService.baseUrl || 'https://api.playground.vanshdeshwal.dev';
+            window.open(`${apiBaseUrl}/docs`, '_blank');
+        };
         
         try {
             const isConnected = await window.apiService.checkBackendStatus();
             
             if (isConnected) {
-                statusDot.className = 'status-dot status-connected';
+                statusDot.className = 'status-dot connected';
                 statusText.textContent = 'Backend Connected';
             } else {
-                statusDot.className = 'status-dot status-error';
+                statusDot.className = 'status-dot disconnected';
                 statusText.textContent = 'Backend Disconnected';
             }
         } catch (error) {
@@ -54,11 +61,15 @@ class AlgorithmPageApp {
 
     async loadAlgorithm() {
         try {
+            console.log('Loading algorithms for ID:', this.algorithmId);
             const algorithms = await window.apiService.getAlgorithms();
+            console.log('Received algorithms:', algorithms);
+            
             const algorithm = algorithms.find(a => a.id === this.algorithmId);
+            console.log('Found algorithm:', algorithm);
             
             if (!algorithm) {
-                throw new Error('Algorithm not found');
+                throw new Error(`Algorithm with ID '${this.algorithmId}' not found`);
             }
 
             this.currentAlgorithm = algorithm;
@@ -67,15 +78,13 @@ class AlgorithmPageApp {
             
         } catch (error) {
             console.error('Failed to load algorithm:', error);
-            this.showError('Failed to load algorithm details. Please try again.');
+            this.showError(`Failed to load algorithm details: ${error.message}`);
         }
     }
 
     displayAlgorithmInfo(algorithm) {
         document.getElementById('algorithm-name').textContent = algorithm.name;
         document.getElementById('algorithm-description').textContent = algorithm.description;
-        document.getElementById('algorithm-type').textContent = algorithm.type;
-        document.getElementById('algorithm-id').textContent = algorithm.id;
         
         // Set algorithm icon
         const icon = this.getAlgorithmIcon(algorithm.type);

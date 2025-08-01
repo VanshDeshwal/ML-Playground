@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 # Import API routers
 from api.algorithms import router as algorithms_router
 from api.training import router as training_router
+from api.enhanced_training import router as enhanced_training_router
 
 # Import services
 from services.algorithm_service import algorithm_service
@@ -77,6 +78,7 @@ app.add_middleware(
 # Include API routers
 app.include_router(algorithms_router)
 app.include_router(training_router)
+app.include_router(enhanced_training_router)
 
 # Legacy endpoints for backward compatibility
 @app.get("/")
@@ -102,10 +104,16 @@ async def health_check():
     try:
         # Check if we can discover algorithms
         algorithms = await algorithm_service.discover_algorithms()
+        
+        # Check core directory existence (same logic as services)
+        container_core = Path("./core")
+        local_core = Path("../core")
+        core_exists = container_core.exists() or local_core.exists()
+        
         return HealthResponse(
             status="healthy",
             algorithms_discovered=len(algorithms),
-            core_directory_exists=Path("../core").exists()
+            core_directory_exists=core_exists
         )
     except Exception as e:
         return JSONResponse(

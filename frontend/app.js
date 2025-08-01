@@ -11,9 +11,16 @@ class MLPlaygroundApp {
     }
 
     async checkBackendConnection() {
-        const statusIndicator = document.getElementById('status-indicator');
-        const statusDot = statusIndicator.querySelector('.status-dot');
-        const statusText = statusIndicator.querySelector('.status-text');
+        const statusButton = document.getElementById('status-button');
+        const statusDot = statusButton.querySelector('.status-dot');
+        const statusText = statusButton.querySelector('.status-text');
+        
+        // Add click listener to navigate to API docs
+        statusButton.onclick = () => {
+            // Get the API base URL and append /docs
+            const apiBaseUrl = window.apiService.baseUrl || 'https://api.playground.vanshdeshwal.dev';
+            window.open(`${apiBaseUrl}/docs`, '_blank');
+        };
         
         try {
             // Use the new health check method
@@ -21,7 +28,7 @@ class MLPlaygroundApp {
             
             if (isHealthy) {
                 statusDot.className = 'status-dot connected';
-                statusText.textContent = 'Connected';
+                statusText.textContent = 'Backend Connected';
             } else {
                 statusDot.className = 'status-dot disconnected';
                 statusText.textContent = 'Backend Unhealthy';

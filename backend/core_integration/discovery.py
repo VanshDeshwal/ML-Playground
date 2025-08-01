@@ -149,6 +149,27 @@ class CoreAlgorithmDiscovery:
         """Get information about a specific algorithm"""
         return self._discovered_algorithms.get(algorithm_id)
     
+    def get_algorithm_class(self, algorithm_id: str) -> Optional[Type]:
+        """Get the actual algorithm class for instantiation"""
+        try:
+            # Import the module
+            module_name = algorithm_id  # algorithm_id should match filename
+            module = importlib.import_module(module_name)
+            
+            # Look for classes with fit and predict methods
+            for name, obj in inspect.getmembers(module, inspect.isclass):
+                if (hasattr(obj, 'fit') and hasattr(obj, 'predict') and 
+                    not name.startswith('_')):
+                    logger.info(f"Found algorithm class: {name} in {module_name}")
+                    return obj
+            
+            logger.warning(f"No suitable algorithm class found in {module_name}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error importing algorithm {algorithm_id}: {e}")
+            return None
+    
     def get_all_algorithms(self) -> Dict[str, Dict[str, Any]]:
         """Get all discovered algorithms"""
         return self._discovered_algorithms.copy()
