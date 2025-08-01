@@ -15,7 +15,7 @@ env/
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
-# IDE settings
+# IDE settings and workspace files
 .vscode/
 .idea/
 *.suo
@@ -23,6 +23,16 @@ env/
 *.userosscache
 *.sln
 *.sw?
+*~
+.DS_Store
+Thumbs.db
+
+# VS Code workspace specific
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/tasks.json
+*.code-workspace
 
 # Logs and databases
 *.log
