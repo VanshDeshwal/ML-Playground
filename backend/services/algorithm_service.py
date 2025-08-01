@@ -130,13 +130,6 @@ class AlgorithmService:
             self._algorithm_adapters.clear()
         logger.info(f"Cleared algorithm cache for {algorithm_id or 'all algorithms'}")
     
-    async def get_algorithm_hyperparameters(self, algorithm_id: str) -> Dict[str, Any]:
-        """Get available hyperparameters for an algorithm"""
-        algorithm_info = await self.get_algorithm_info(algorithm_id)
-        if algorithm_info:
-            return algorithm_info.get("hyperparameters", {})
-        return {}
-    
     async def validate_algorithm_exists(self, algorithm_id: str) -> bool:
         """Check if an algorithm exists"""
         algorithms = await self.discover_algorithms()

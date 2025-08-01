@@ -1,5 +1,5 @@
 """
-Enhanced Training Results Models
+Training Results Models
 Comprehensive results system for algorithm training with sklearn comparison and visualization data
 """
 from typing import Dict, List, Any, Optional, Union
@@ -77,7 +77,7 @@ class DatasetInfo(BaseModel):
     test_size: int = Field(..., description="Test set size")
     split_ratio: float = Field(..., description="Train/test split ratio")
 
-class EnhancedTrainingResult(BaseModel):
+class TrainingResult(BaseModel):
     """Comprehensive training results with sklearn comparison and visualization data"""
     # Basic info
     success: bool = Field(..., description="Whether training was successful")

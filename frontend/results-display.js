@@ -1,7 +1,7 @@
-// Clean, scalable Enhanced UI for ML Playground results
-class EnhancedResultsDisplay {
+// Clean, scalable Results Display for ML Playground
+class ResultsDisplay {
     constructor(container) {
-        console.log('🔧 EnhancedResultsDisplay constructor called with:', container, typeof container);
+        console.log('🔧 ResultsDisplay constructor called with:', container, typeof container);
         
         // Handle both string ID and DOM element
         if (typeof container === 'string') {
@@ -15,30 +15,45 @@ class EnhancedResultsDisplay {
         } else if (container && container.innerHTML !== undefined) {
             this.container = container;
         } else {
-            console.error('❌ Invalid container passed to EnhancedResultsDisplay:', container);
+            console.error('❌ Invalid container passed to ResultsDisplay:', container);
             throw new Error('Container must be a DOM element or valid element ID');
         }
         
         this.plotlyLoaded = false;
-        console.log('✅ EnhancedResultsDisplay initialized with valid container');
+        console.log('✅ ResultsDisplay initialized with valid container');
     }
 
     async displayResults(result) {
-        console.log('📊 Enhanced results display called with:', result);
+        console.log('📊 Results display called with:', result);
         
-        if (!result || !result.success) {
-            this.displayError(result?.error || 'Training failed');
+        // Initialize data contract validator if not exists
+        if (!this.dataValidator) {
+            this.dataValidator = new DataContractValidator();
+        }
+
+        // Process data through data contract validation
+        let processedResult;
+        try {
+            processedResult = this.dataValidator.processTrainingResult(result);
+            console.log('✅ Data contract processing completed');
+        } catch (error) {
+            console.error('❌ Data contract processing failed:', error);
+            processedResult = result; // Fallback to original data
+        }
+        
+        if (!processedResult || !processedResult.success) {
+            this.displayError(processedResult?.error || 'Training failed');
             return;
         }
 
-        console.log('✅ Result successful, displaying enhanced results');
+        console.log('✅ Result successful, displaying results');
         
         // Clear previous results
         this.container.innerHTML = '';
 
         // Create main results container with clean structure
         const resultsContainer = document.createElement('div');
-        resultsContainer.className = 'enhanced-results-container';
+        resultsContainer.className = 'results-container';
         resultsContainer.innerHTML = `
             <div class="results-sections">
                 <section class="sklearn-comparison-section">
@@ -62,23 +77,23 @@ class EnhancedResultsDisplay {
         this.addResponsiveStyles();
         this.container.appendChild(resultsContainer);
 
-        // Display content in order
-        this.displayComparison(result);
-        await this.displayVisualizations(result);
-        this.displayTrainingDetails(result);
+        // Display content in order (using processed data)
+        this.displayComparison(processedResult);
+        await this.displayVisualizations(processedResult);
+        this.displayTrainingDetails(processedResult);
     }
 
     addResponsiveStyles() {
         // Remove any existing styles
-        const existingStyle = document.getElementById('enhanced-ui-styles');
+        const existingStyle = document.getElementById('results-ui-styles');
         if (existingStyle) {
             existingStyle.remove();
         }
 
         const style = document.createElement('style');
-        style.id = 'enhanced-ui-styles';
+        style.id = 'results-ui-styles';
         style.textContent = `
-            .enhanced-results-container {
+            .results-container {
                 max-width: 100%;
                 margin: 0 auto;
                 padding: 16px;
@@ -167,7 +182,7 @@ class EnhancedResultsDisplay {
 
             /* Responsive Breakpoints */
             @media (min-width: 640px) {
-                .enhanced-results-container { padding: 24px; }
+                .results-container { padding: 24px; }
                 .results-sections section { padding: 24px; }
                 .chart-container { height: 400px; }
                 .chart-loading, .chart-error, .chart-empty { height: 400px; }
@@ -178,7 +193,7 @@ class EnhancedResultsDisplay {
             }
 
             @media (min-width: 1024px) {
-                .enhanced-results-container { padding: 32px; }
+                .results-container { padding: 32px; }
                 .results-sections section { padding: 32px; }
                 .charts-grid { grid-template-columns: repeat(2, 1fr); }
             }
@@ -260,7 +275,7 @@ class EnhancedResultsDisplay {
 
             /* Mobile Optimizations */
             @media (max-width: 640px) {
-                .enhanced-results-container { padding: 12px; }
+                .results-container { padding: 12px; }
                 .results-sections { gap: 20px; }
                 .results-sections section { padding: 16px; }
                 .results-sections h3 { font-size: 1rem; }
@@ -654,4 +669,4 @@ class EnhancedResultsDisplay {
 }
 
 // Export for use in other files
-window.EnhancedResultsDisplay = EnhancedResultsDisplay;
+window.ResultsDisplay = ResultsDisplay;

@@ -4,7 +4,7 @@ class AlgorithmPageApp {
         this.currentAlgorithm = null;
         this.isTraining = false;
         this.algorithmId = null;
-        this.enhancedResultsDisplay = null;
+        this.resultsDisplay = null;
         
         this.init();
     }
@@ -31,8 +31,8 @@ class AlgorithmPageApp {
         // Setup event listeners
         this.setupEventListeners();
         
-        // Initialize enhanced UI components (async but not awaited for faster page load)
-        this.initializeEnhancedUI().catch(console.error);
+        // Initialize UI components (async but not awaited for faster page load)
+        this.initializeUI().catch(console.error);
     }
 
     async checkBackendConnection() {
@@ -246,26 +246,26 @@ class AlgorithmPageApp {
         });
     }
 
-    async initializeEnhancedUI() {
+    async initializeUI() {
         try {
-            console.log('🔧 Initializing Enhanced UI...');
+            console.log('🔧 Initializing UI...');
             
-            // Get the actual DOM element for enhanced results display
-            const enhancedResultsContainer = document.getElementById('enhanced-results-display');
-            console.log('📦 Found container element:', enhancedResultsContainer, typeof enhancedResultsContainer);
+            // Get the actual DOM element for results display
+            const resultsContainer = document.getElementById('results-display');
+            console.log('📦 Found container element:', resultsContainer, typeof resultsContainer);
             
-            if (!enhancedResultsContainer) {
-                console.warn('Enhanced results display container not found');
+            if (!resultsContainer) {
+                console.warn('Results display container not found');
                 return;
             }
             
-            // Initialize enhanced results display with DOM element
-            this.enhancedResultsDisplay = new EnhancedResultsDisplay(enhancedResultsContainer);
+            // Initialize results display with DOM element
+            this.resultsDisplay = new ResultsDisplay(resultsContainer);
             
-            console.log('Enhanced UI components initialized successfully');
+            console.log('UI components initialized successfully');
         } catch (error) {
-            console.error('Failed to initialize enhanced UI components:', error);
-            // Fallback to basic UI if enhanced components fail
+            console.error('Failed to initialize UI components:', error);
+            // Fallback to basic UI if components fail
         }
     }
 
@@ -316,23 +316,23 @@ class AlgorithmPageApp {
         try {
             const hyperparameters = this.getHyperparameters();
             
-            // Use enhanced training API for rich results
+            // Use training API for rich results
             const results = await window.apiService.trainAlgorithm(this.algorithmId, hyperparameters);
             console.log('Training results received:', results);
             
-            // Ensure enhanced UI is properly initialized
-            if (!this.enhancedResultsDisplay && results.success) {
+            // Ensure UI is properly initialized
+            if (!this.resultsDisplay && results.success) {
                 console.log('🔄 Enhanced display not ready, initializing now...');
                 await this.initializeEnhancedUI();
             }
             
-            // Display results using enhanced UI if available
-            if (this.enhancedResultsDisplay && results.success) {
-                console.log('Using enhanced results display');
-                this.enhancedResultsDisplay.displayResults(results);
+            // Display results using UI if available
+            if (this.resultsDisplay && results.success) {
+                console.log('Using results display');
+                this.resultsDisplay.displayResults(results);
                 resultsSection.classList.remove('hidden');
             } else {
-                console.log('Using fallback display. Enhanced display available:', !!this.enhancedResultsDisplay, 'Results success:', results.success);
+                console.log('Using fallback display. Results display available:', !!this.resultsDisplay, 'Results success:', results.success);
                 // Fallback to basic display
                 this.displayResults(results);
             }
@@ -340,9 +340,9 @@ class AlgorithmPageApp {
         } catch (error) {
             console.error('Training failed:', error);
             
-            // Show error using enhanced UI if available
-            if (this.enhancedResultsDisplay) {
-                this.enhancedResultsDisplay.displayError(error.message || 'Training failed');
+            // Show error using UI if available
+            if (this.resultsDisplay) {
+                this.resultsDisplay.displayError(error.message || 'Training failed');
                 resultsSection.classList.remove('hidden');
             } else {
                 // Fallback error display

@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse
 # Import API routers
 from api.algorithms import router as algorithms_router
 from api.training import router as training_router
-from api.enhanced_training import router as enhanced_training_router
 
 # Import services
 from services.algorithm_service import algorithm_service
@@ -78,7 +77,6 @@ app.add_middleware(
 # Include API routers
 app.include_router(algorithms_router)
 app.include_router(training_router)
-app.include_router(enhanced_training_router)
 
 # Legacy endpoints for backward compatibility
 @app.get("/")
@@ -94,6 +92,7 @@ async def root():
             "algorithms": "/algorithms",
             "training": "/training",
             "code_snippets": "/algorithms/{id}/code",
+            "health": "/health",
             "docs": "/docs"
         }
     }
@@ -124,17 +123,6 @@ async def health_check():
             ).dict()
         )
 
-# Legacy algorithm endpoints for backward compatibility
-@app.get("/algorithms")
-async def get_algorithms_legacy():
-    """Legacy endpoint - redirects to new endpoint"""
-    return await algorithms_router.get_algorithms()
-
-@app.get("/algorithms/{algorithm_id}")
-async def get_algorithm_legacy(algorithm_id: str):
-    """Legacy endpoint - redirects to new endpoint"""
-    return await algorithms_router.get_algorithm(algorithm_id)
-
 # Code snippet endpoints (integrating existing snippet service)
 @app.get("/algorithms/{algorithm_id}/code", response_model=CodeSnippet)
 async def get_algorithm_code(algorithm_id: str):
@@ -156,14 +144,6 @@ async def get_algorithm_code(algorithm_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching code snippet: {str(e)}")
-
-@app.get("/code/available")
-async def get_available_code():
-    """Get list of algorithms with available code snippets"""
-    try:
-        return snippet_service.get_available_snippets()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching available snippets: {str(e)}")
 
 # Error handlers
 @app.exception_handler(404)

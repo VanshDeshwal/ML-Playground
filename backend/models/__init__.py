@@ -1,35 +1,21 @@
-# Models package for ML Playground - New Architecture
-# Pydantic models for API requests and responses
-
-from .requests import (
-    TrainingRequest,
-    PredictionRequest,
-    DatasetRequest,
-    AlgorithmRefreshRequest
-)
+# Models package for ML Playground - Cleaned Architecture
+# Only includes models that are actually used
 
 from .responses import (
     AlgorithmInfo,
     AlgorithmsListResponse,
-    TrainingResponse,
-    PredictionResponse,
     CodeSnippet,
-    HealthResponse,
-    StatusResponse
+    HealthResponse
 )
 
+from .training_results import TrainingResult
+
 __all__ = [
-    # Request models
-    'TrainingRequest',
-    'PredictionRequest', 
-    'DatasetRequest',
-    'AlgorithmRefreshRequest',
-    # Response models
+    # Response models (actively used)
     'AlgorithmInfo',
-    'AlgorithmsListResponse',
-    'TrainingResponse',
-    'PredictionResponse',
+    'AlgorithmsListResponse', 
     'CodeSnippet',
     'HealthResponse',
-    'StatusResponse'
+    # Training
+    'TrainingResult'
 ]

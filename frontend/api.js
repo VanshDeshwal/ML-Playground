@@ -89,19 +89,19 @@ class APIService {
         try {
             const requestBody = hyperparameters;
 
-            const response = await fetch(`${this.baseURL}/enhanced-training/${algorithmName}?dataset=${dataset}`, {
+            const response = await fetch(`${this.baseURL}/training/${algorithmName}?dataset=${dataset}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(requestBody),
                 // Add timeout for training requests
-                signal: AbortSignal.timeout(60000) // 60 second timeout for enhanced training
+                signal: AbortSignal.timeout(60000) // 60 second timeout for training
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Enhanced training API error response:', errorText);
+                console.error('Training API error response:', errorText);
                 
                 // Provide more specific error messages
                 if (response.status === 404) {
@@ -115,16 +115,31 @@ class APIService {
 
             const result = await response.json();
             
-            // Validate enhanced response structure
-            if (!result.success) {
-                throw new Error(result.error || 'Training failed');
+            // Initialize data contract validator if not exists
+            if (!this.dataValidator) {
+                this.dataValidator = new DataContractValidator();
             }
 
-            console.log('Enhanced training completed successfully:', result);
-            return result;
+            // Validate and normalize the result using data contract
+            let processedResult;
+            try {
+                processedResult = this.dataValidator.processTrainingResult(result);
+                console.log('✅ API data contract validation passed');
+            } catch (contractError) {
+                console.warn('⚠️ Data contract validation failed, using raw data:', contractError);
+                processedResult = result; // Use raw data as fallback
+            }
+            
+            // Validate response structure
+            if (!processedResult.success) {
+                throw new Error(processedResult.error || 'Training failed');
+            }
+
+            console.log('Training completed successfully:', processedResult);
+            return processedResult;
 
         } catch (error) {
-            console.error('Enhanced training failed:', error);
+            console.error('Training failed:', error);
             
             // Return a structured error response
             return {
@@ -138,7 +153,7 @@ class APIService {
 
     async getAvailableDatasets() {
         try {
-            const response = await fetch(`${this.baseURL}/enhanced-training/datasets`, {
+            const response = await fetch(`${this.baseURL}/training/datasets`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -170,7 +185,7 @@ class APIService {
 
     async getMetricsInfo(algorithmType) {
         try {
-            const response = await fetch(`${this.baseURL}/enhanced-training/metrics/${algorithmType}`, {
+            const response = await fetch(`${this.baseURL}/training/metrics/${algorithmType}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',

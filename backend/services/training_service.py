@@ -1,5 +1,5 @@
 """
-Enhanced Training Service
+Training Service
 Handles comprehensive algorithm training with sklearn comparison and rich metrics
 """
 import time
@@ -11,8 +11,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.datasets import load_diabetes, load_iris, load_wine, load_breast_cancer
 import logging
 
-from models.enhanced_results import (
-    EnhancedTrainingResult, AlgorithmResult, AlgorithmMetrics,
+from models.training_results import (
+    TrainingResult, AlgorithmResult, AlgorithmMetrics,
     ChartData, ComparisonSummary, DatasetInfo
 )
 from sklearn_integration.comparison import sklearn_comparison, SklearnMapper
@@ -231,8 +231,8 @@ class ChartDataGenerator:
         
         return charts
 
-class EnhancedTrainingService:
-    """Enhanced training service with sklearn comparison and rich visualization"""
+class TrainingService:
+    """Training service with sklearn comparison and rich visualization"""
     
     def __init__(self):
         self.dataset_service = DatasetService()
@@ -243,7 +243,7 @@ class EnhancedTrainingService:
         algorithm_id: str,
         hyperparameters: Dict[str, Any],
         dataset_name: str = "diabetes"
-    ) -> EnhancedTrainingResult:
+    ) -> TrainingResult:
         """
         Train algorithm with sklearn comparison and generate comprehensive results
         """
@@ -284,7 +284,7 @@ class EnhancedTrainingService:
             
             total_duration = time.time() - start_time
             
-            return EnhancedTrainingResult(
+            return TrainingResult(
                 success=True,
                 algorithm_id=algorithm_id,
                 algorithm_type=algorithm_type,
@@ -302,7 +302,7 @@ class EnhancedTrainingService:
             logger.error(f"Training failed for {algorithm_id}: {e}")
             logger.error(traceback.format_exc())
             
-            return EnhancedTrainingResult(
+            return TrainingResult(
                 success=False,
                 algorithm_id=algorithm_id,
                 algorithm_type="unknown",
@@ -545,4 +545,4 @@ class EnhancedTrainingService:
             return ChartData()
 
 # Global instance
-enhanced_training_service = EnhancedTrainingService()
+training_service = TrainingService()
