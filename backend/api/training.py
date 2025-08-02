@@ -18,7 +18,7 @@ router = APIRouter(prefix="/training", tags=["Training"])
 async def train_algorithm(
     algorithm_id: str,
     hyperparameters: Dict[str, Any],
-    dataset: str = Query(default="diabetes", description="Dataset to use for training"),
+    dataset: Optional[str] = Query(default=None, description="Dataset to use for training (auto-detected if not specified)"),
 ) -> TrainingResult:
     """
     Train an algorithm with comprehensive results including sklearn comparison
@@ -30,6 +30,7 @@ async def train_algorithm(
     - Rich metrics (R², accuracy, etc.)
     - Visualization data for charts
     - Training history and convergence analysis
+    - Auto-detection of best dataset for algorithm type
     """
     try:
         # Validate algorithm exists
@@ -39,13 +40,19 @@ async def train_algorithm(
                 detail=f"Algorithm '{algorithm_id}' not found"
             )
         
-        # Validate dataset
-        valid_datasets = ["diabetes", "iris", "wine", "breast_cancer"]
-        if dataset not in valid_datasets:
+        # Import here to avoid circular imports
+        from services.training_service import DatasetService, AlgorithmTypeDetector
+        
+        # Validate dataset if provided, otherwise auto-detect
+        valid_datasets = list(DatasetService.DATASETS.keys())
+        if dataset is not None and dataset not in valid_datasets:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid dataset '{dataset}'. Valid options: {valid_datasets}"
             )
+        elif dataset is None:
+            dataset = AlgorithmTypeDetector.get_best_dataset(algorithm_id)
+            logger.info(f"Auto-selected dataset '{dataset}' for algorithm '{algorithm_id}'")
         
         logger.info(f"Starting training for {algorithm_id} with dataset {dataset}")
         logger.info(f"Hyperparameters: {hyperparameters}")

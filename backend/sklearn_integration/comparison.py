@@ -8,9 +8,17 @@ import time
 from typing import Dict, Any, Optional, Tuple, Type
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge, Lasso
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
-from sklearn.cluster import KMeans
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingClassifier, GradientBoostingRegressor, AdaBoostClassifier, AdaBoostRegressor
+from sklearn.svm import SVC, SVR
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.naive_bayes import GaussianNB, MultinomialNB, BernoulliNB
+from sklearn.neural_network import MLPClassifier, MLPRegressor
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import (
     r2_score, mean_squared_error, mean_absolute_error,
     accuracy_score, precision_score, recall_score, f1_score,
@@ -25,21 +33,126 @@ class SklearnMapper:
     
     # Algorithm mapping configuration
     ALGORITHM_MAPPINGS = {
+        # ===== REGRESSION ALGORITHMS =====
         "linear_regression": {
             "sklearn_class": LinearRegression,
             "algorithm_type": "regression",
             "param_mapping": {
-                # our_param: sklearn_param (None if sklearn doesn't have it)
                 "alpha": None,  # Sklearn LinearRegression doesn't use learning rate
                 "n_iters": None,  # Sklearn uses different solver
                 "tolerance": None,  # Sklearn has different convergence criteria
-                "fit_intercept": "fit_intercept"  # Direct mapping when available
+                "fit_intercept": "fit_intercept"
             },
             "default_sklearn_params": {
                 "fit_intercept": True,
                 "copy_X": True
             }
         },
+        "ridge_regression": {
+            "sklearn_class": Ridge,
+            "algorithm_type": "regression",
+            "param_mapping": {
+                "alpha": "alpha",
+                "fit_intercept": "fit_intercept",
+                "max_iter": "max_iter",
+                "tol": "tol"
+            },
+            "default_sklearn_params": {
+                "alpha": 1.0,
+                "fit_intercept": True,
+                "max_iter": 1000,
+                "random_state": 42
+            }
+        },
+        "lasso_regression": {
+            "sklearn_class": Lasso,
+            "algorithm_type": "regression",
+            "param_mapping": {
+                "alpha": "alpha",
+                "fit_intercept": "fit_intercept",
+                "max_iter": "max_iter",
+                "tol": "tol"
+            },
+            "default_sklearn_params": {
+                "alpha": 1.0,
+                "fit_intercept": True,
+                "max_iter": 1000,
+                "random_state": 42
+            }
+        },
+        "polynomial_regression": {
+            "sklearn_class": PolynomialFeatures,
+            "algorithm_type": "regression",
+            "param_mapping": {
+                "degree": "degree",
+                "include_bias": "include_bias",
+                "interaction_only": "interaction_only"
+            },
+            "default_sklearn_params": {
+                "degree": 2,
+                "include_bias": True,
+                "interaction_only": False
+            }
+        },
+        "decision_tree_regressor": {
+            "sklearn_class": DecisionTreeRegressor,
+            "algorithm_type": "regression",
+            "param_mapping": {
+                "max_depth": "max_depth",
+                "min_samples_split": "min_samples_split",
+                "min_samples_leaf": "min_samples_leaf",
+                "max_features": "max_features"
+            },
+            "default_sklearn_params": {
+                "random_state": 42,
+                "max_depth": None
+            }
+        },
+        "random_forest_regressor": {
+            "sklearn_class": RandomForestRegressor,
+            "algorithm_type": "regression",
+            "param_mapping": {
+                "n_estimators": "n_estimators",
+                "max_depth": "max_depth",
+                "min_samples_split": "min_samples_split",
+                "min_samples_leaf": "min_samples_leaf"
+            },
+            "default_sklearn_params": {
+                "n_estimators": 100,
+                "random_state": 42
+            }
+        },
+        "svr": {
+            "sklearn_class": SVR,
+            "algorithm_type": "regression",
+            "param_mapping": {
+                "C": "C",
+                "kernel": "kernel",
+                "gamma": "gamma",
+                "epsilon": "epsilon"
+            },
+            "default_sklearn_params": {
+                "kernel": "rbf",
+                "C": 1.0,
+                "gamma": "scale"
+            }
+        },
+        "knn_regressor": {
+            "sklearn_class": KNeighborsRegressor,
+            "algorithm_type": "regression",
+            "param_mapping": {
+                "n_neighbors": "n_neighbors",
+                "weights": "weights",
+                "metric": "metric"
+            },
+            "default_sklearn_params": {
+                "n_neighbors": 5,
+                "weights": "uniform",
+                "metric": "minkowski"
+            }
+        },
+        
+        # ===== CLASSIFICATION ALGORITHMS =====
         "logistic_regression": {
             "sklearn_class": LogisticRegression,
             "algorithm_type": "classification", 
@@ -55,6 +168,178 @@ class SklearnMapper:
                 "solver": "lbfgs"
             }
         },
+        "decision_tree": {
+            "sklearn_class": DecisionTreeClassifier,
+            "algorithm_type": "classification",
+            "param_mapping": {
+                "max_depth": "max_depth",
+                "min_samples_split": "min_samples_split",
+                "min_samples_leaf": "min_samples_leaf",
+                "max_features": "max_features",
+                "criterion": "criterion"
+            },
+            "default_sklearn_params": {
+                "random_state": 42,
+                "criterion": "gini"
+            }
+        },
+        "random_forest": {
+            "sklearn_class": RandomForestClassifier,
+            "algorithm_type": "classification",
+            "param_mapping": {
+                "n_estimators": "n_estimators",
+                "max_depth": "max_depth",
+                "min_samples_split": "min_samples_split",
+                "min_samples_leaf": "min_samples_leaf",
+                "max_features": "max_features"
+            },
+            "default_sklearn_params": {
+                "n_estimators": 100,
+                "random_state": 42
+            }
+        },
+        "svm": {
+            "sklearn_class": SVC,
+            "algorithm_type": "classification",
+            "param_mapping": {
+                "C": "C",
+                "kernel": "kernel",
+                "gamma": "gamma",
+                "degree": "degree"
+            },
+            "default_sklearn_params": {
+                "kernel": "rbf",
+                "C": 1.0,
+                "gamma": "scale",
+                "random_state": 42
+            }
+        },
+        "knn": {
+            "sklearn_class": KNeighborsClassifier,
+            "algorithm_type": "classification",
+            "param_mapping": {
+                "n_neighbors": "n_neighbors",
+                "weights": "weights",
+                "metric": "metric"
+            },
+            "default_sklearn_params": {
+                "n_neighbors": 5,
+                "weights": "uniform",
+                "metric": "minkowski"
+            }
+        },
+        "naive_bayes": {
+            "sklearn_class": GaussianNB,
+            "algorithm_type": "classification",
+            "param_mapping": {
+                "var_smoothing": "var_smoothing"
+            },
+            "default_sklearn_params": {
+                "var_smoothing": 1e-9
+            }
+        },
+        "naive_bayes_multinomial": {
+            "sklearn_class": MultinomialNB,
+            "algorithm_type": "classification",
+            "param_mapping": {
+                "alpha": "alpha",
+                "fit_prior": "fit_prior"
+            },
+            "default_sklearn_params": {
+                "alpha": 1.0,
+                "fit_prior": True
+            }
+        },
+        "naive_bayes_bernoulli": {
+            "sklearn_class": BernoulliNB,
+            "algorithm_type": "classification",
+            "param_mapping": {
+                "alpha": "alpha",
+                "binarize": "binarize",
+                "fit_prior": "fit_prior"
+            },
+            "default_sklearn_params": {
+                "alpha": 1.0,
+                "binarize": 0.0,
+                "fit_prior": True
+            }
+        },
+        "gradient_boosting": {
+            "sklearn_class": GradientBoostingClassifier,
+            "algorithm_type": "classification",
+            "param_mapping": {
+                "n_estimators": "n_estimators",
+                "learning_rate": "learning_rate",
+                "max_depth": "max_depth",
+                "min_samples_split": "min_samples_split"
+            },
+            "default_sklearn_params": {
+                "n_estimators": 100,
+                "learning_rate": 0.1,
+                "max_depth": 3,
+                "random_state": 42
+            }
+        },
+        "ada_boost": {
+            "sklearn_class": AdaBoostClassifier,
+            "algorithm_type": "classification",
+            "param_mapping": {
+                "n_estimators": "n_estimators",
+                "learning_rate": "learning_rate",
+                "algorithm": "algorithm"
+            },
+            "default_sklearn_params": {
+                "n_estimators": 50,
+                "learning_rate": 1.0,
+                "random_state": 42
+            }
+        },
+        
+        # ===== NEURAL NETWORKS =====
+        "neural_network": {
+            "sklearn_class": MLPClassifier,
+            "algorithm_type": "classification",
+            "param_mapping": {
+                "hidden_layer_sizes": "hidden_layer_sizes",
+                "activation": "activation",
+                "solver": "solver",
+                "alpha": "alpha",
+                "learning_rate": "learning_rate",
+                "max_iter": "max_iter"
+            },
+            "default_sklearn_params": {
+                "hidden_layer_sizes": (100,),
+                "activation": "relu",
+                "solver": "adam",
+                "alpha": 0.0001,
+                "learning_rate": "constant",
+                "max_iter": 200,
+                "random_state": 42
+            }
+        },
+        "neural_network_regressor": {
+            "sklearn_class": MLPRegressor,
+            "algorithm_type": "regression",
+            "param_mapping": {
+                "hidden_layer_sizes": "hidden_layer_sizes",
+                "activation": "activation",
+                "solver": "solver",
+                "alpha": "alpha",
+                "learning_rate": "learning_rate",
+                "max_iter": "max_iter"
+            },
+            "default_sklearn_params": {
+                "hidden_layer_sizes": (100,),
+                "activation": "relu",
+                "solver": "adam",
+                "alpha": 0.0001,
+                "learning_rate": "constant",
+                "max_iter": 200,
+                "random_state": 42
+            }
+        },
+        
+        # ===== CLUSTERING ALGORITHMS =====
         "kmeans": {
             "sklearn_class": KMeans,
             "algorithm_type": "clustering",
@@ -68,6 +353,50 @@ class SklearnMapper:
             "default_sklearn_params": {
                 "random_state": 42,
                 "n_init": 10
+            }
+        },
+        "dbscan": {
+            "sklearn_class": DBSCAN,
+            "algorithm_type": "clustering",
+            "param_mapping": {
+                "eps": "eps",
+                "min_samples": "min_samples",
+                "metric": "metric"
+            },
+            "default_sklearn_params": {
+                "eps": 0.5,
+                "min_samples": 5,
+                "metric": "euclidean"
+            }
+        },
+        "hierarchical": {
+            "sklearn_class": AgglomerativeClustering,
+            "algorithm_type": "clustering",
+            "param_mapping": {
+                "n_clusters": "n_clusters",
+                "linkage": "linkage",
+                "metric": "metric"
+            },
+            "default_sklearn_params": {
+                "n_clusters": 2,
+                "linkage": "ward"
+            }
+        },
+        
+        # ===== DIMENSIONALITY REDUCTION =====
+        "pca": {
+            "sklearn_class": PCA,
+            "algorithm_type": "dimensionality_reduction",
+            "param_mapping": {
+                "n_components": "n_components",
+                "whiten": "whiten",
+                "svd_solver": "svd_solver"
+            },
+            "default_sklearn_params": {
+                "n_components": None,
+                "whiten": False,
+                "svd_solver": "auto",
+                "random_state": 42
             }
         }
     }
@@ -193,7 +522,14 @@ class SklearnComparison:
             if hasattr(sklearn_model, 'coef_'):
                 result["coefficients"] = sklearn_model.coef_.flatten().tolist()
             if hasattr(sklearn_model, 'intercept_'):
-                result["intercept"] = float(sklearn_model.intercept_)
+                # Handle both scalar and array intercepts
+                intercept = sklearn_model.intercept_
+                if hasattr(intercept, '__len__') and len(intercept) == 1:
+                    result["intercept"] = float(intercept[0])
+                elif hasattr(intercept, '__len__'):
+                    result["intercept"] = intercept.tolist()
+                else:
+                    result["intercept"] = float(intercept)
             if hasattr(sklearn_model, 'feature_importances_'):
                 result["feature_importance"] = sklearn_model.feature_importances_.tolist()
             if hasattr(sklearn_model, 'cluster_centers_'):
@@ -226,7 +562,7 @@ class SklearnComparison:
                     "rmse": float(np.sqrt(mean_squared_error(y_true, y_pred)))
                 })
                 
-            elif algorithm_type == "classification":
+            elif algorithm_type in ["classification", "binary_classification", "multiclass_classification"]:
                 # Handle binary and multiclass
                 average = 'binary' if len(np.unique(y_true)) == 2 else 'weighted'
                 

@@ -1,4 +1,7 @@
-// Clean, scalable Results Display for ML Playground
+/**
+ * Clean, scalable Results Display for ML Playground
+ * Handles visualization of training results with flexible chart layout
+ */
 class ResultsDisplay {
     constructor(container) {
         console.log('🔧 ResultsDisplay constructor called with:', container, typeof container);
@@ -12,366 +15,359 @@ class ResultsDisplay {
                 throw new Error(`No element found with ID: ${container}`);
             }
             this.container = element;
-        } else if (container && container.innerHTML !== undefined) {
+        } else if (container && container.nodeType === 1) {
+            console.log('✅ Using provided DOM element');
             this.container = container;
         } else {
-            console.error('❌ Invalid container passed to ResultsDisplay:', container);
-            throw new Error('Container must be a DOM element or valid element ID');
+            console.error('❌ Invalid container provided:', container);
+            throw new Error('Container must be a string ID or DOM element');
         }
         
-        this.plotlyLoaded = false;
+        this.initializeContainer();
         console.log('✅ ResultsDisplay initialized with valid container');
     }
 
+    /**
+     * Initialize the main container structure
+     */
+    initializeContainer() {
+        this.container.innerHTML = `
+            <div class="results-container">
+                <div class="results-sections">
+                    <section class="sklearn-comparison-section">
+                        <h3>📊 Performance Comparison</h3>
+                        <div id="comparison-content">
+                            <div class="loading">Calculating metrics...</div>
+                        </div>
+                    </section>
+                    
+                    <section class="visualizations-section">
+                        <h3>📈 Visualizations</h3>
+                        <div id="charts-grid" class="charts-grid">
+                            <div class="loading">Generating charts...</div>
+                        </div>
+                    </section>
+                    
+                    <section class="training-details-section">
+                        <h3>🔧 Training Details</h3>
+                        <div id="training-details">
+                            <div class="loading">Loading details...</div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Main method to display training results
+     */
     async displayResults(result) {
         console.log('📊 Results display called with:', result);
         
-        // Initialize data contract validator if not exists
-        if (!this.dataValidator) {
-            this.dataValidator = new DataContractValidator();
-        }
-
-        // Process data through data contract validation
-        let processedResult;
         try {
-            processedResult = this.dataValidator.processTrainingResult(result);
+            // Process result through data contract validation
+            const dataContract = new DataContractValidator();
+            const processedResult = dataContract.processTrainingResult(result);
             console.log('✅ Data contract processing completed');
+
+            // Check if training was successful
+            if (!processedResult.success) {
+                console.error('❌ Training failed:', processedResult.error);
+                this.displayError(processedResult.error || 'Training failed');
+                return;
+            }
+
+            console.log('✅ Result successful, displaying results');
+            
+            // Display components
+            this.displayComparison(processedResult);
+            await this.displayCharts(processedResult);
+            this.displayTrainingDetails(processedResult);
+            
         } catch (error) {
-            console.error('❌ Data contract processing failed:', error);
-            processedResult = result; // Fallback to original data
+            console.error('❌ Error displaying results:', error);
+            this.displayError(`Error displaying results: ${error.message}`);
         }
-        
-        if (!processedResult || !processedResult.success) {
-            this.displayError(processedResult?.error || 'Training failed');
+    }
+
+    /**
+     * Display performance comparison metrics
+     */
+    displayComparison(result) {
+        const container = document.getElementById('comparison-content');
+        const yourMetrics = result.your_implementation?.metrics;
+        const sklearnMetrics = result.sklearn_implementation?.metrics;
+
+        if (!yourMetrics || !sklearnMetrics) {
+            container.innerHTML = '<div class="chart-empty">Comparison data not available</div>';
             return;
         }
 
-        console.log('✅ Result successful, displaying results');
-        
-        // Clear previous results
-        this.container.innerHTML = '';
-
-        // Create main results container with clean structure
-        const resultsContainer = document.createElement('div');
-        resultsContainer.className = 'results-container';
-        resultsContainer.innerHTML = `
-            <div class="results-sections">
-                <section class="sklearn-comparison-section">
-                    <h3>📊 Performance Comparison</h3>
-                    <div id="comparison-content"></div>
-                </section>
-                
-                <section class="visualizations-section">
-                    <h3>📈 Visualizations</h3>
-                    <div id="charts-grid" class="charts-grid"></div>
-                </section>
-                
-                <section class="training-details-section">
-                    <h3>🔧 Training Details</h3>
-                    <div id="training-details"></div>
-                </section>
-            </div>
-        `;
-
-        // Add responsive CSS
-        this.addResponsiveStyles();
-        this.container.appendChild(resultsContainer);
-
-        // Display content in order (using processed data)
-        this.displayComparison(processedResult);
-        await this.displayVisualizations(processedResult);
-        this.displayTrainingDetails(processedResult);
-    }
-
-    addResponsiveStyles() {
-        // Remove any existing styles
-        const existingStyle = document.getElementById('results-ui-styles');
-        if (existingStyle) {
-            existingStyle.remove();
+        // Determine which metrics to show based on algorithm type
+        let metrics, metricNames;
+        if (result.algorithm_type === 'binary_classification' || result.algorithm_type === 'multiclass_classification') {
+            metrics = ['accuracy', 'precision', 'recall', 'f1_score'];
+            metricNames = {
+                accuracy: 'Accuracy',
+                precision: 'Precision',
+                recall: 'Recall',
+                f1_score: 'F1 Score'
+            };
+        } else {
+            // Default to regression metrics
+            metrics = ['r2_score', 'mse', 'mae', 'rmse'];
+            metricNames = {
+                r2_score: 'R² Score',
+                mse: 'Mean Squared Error',
+                mae: 'Mean Absolute Error',
+                rmse: 'Root Mean Squared Error'
+            };
         }
 
-        const style = document.createElement('style');
-        style.id = 'results-ui-styles';
-        style.textContent = `
-            .results-container {
-                max-width: 100%;
-                margin: 0 auto;
-                padding: 16px;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background: #f8fafc;
+        const metricsHTML = metrics.map(metric => {
+            const yourValue = yourMetrics[metric];
+            const sklearnValue = sklearnMetrics[metric];
+            
+            // More robust check for valid numeric values
+            if (yourValue == null || sklearnValue == null || 
+                typeof yourValue !== 'number' || typeof sklearnValue !== 'number' || 
+                isNaN(yourValue) || isNaN(sklearnValue)) {
+                return '';
             }
 
-            .results-sections {
-                display: flex;
-                flex-direction: column;
-                gap: 32px;
-                max-width: 1400px;
-                margin: 0 auto;
+            const difference = yourValue - sklearnValue;
+            
+            // Determine if higher is better based on metric type
+            let isBetter;
+            if (result.algorithm_type === 'binary_classification' || result.algorithm_type === 'multiclass_classification') {
+                // For classification metrics, higher is generally better
+                isBetter = difference > 0;
+            } else {
+                // For regression metrics, R² higher is better, others lower is better
+                const isR2 = metric === 'r2_score';
+                isBetter = isR2 ? difference > 0 : difference < 0;
             }
+            
+            return `
+                <div class="metric-card">
+                    <div class="metric-name">${metricNames[metric]}</div>
+                    <div class="metric-values">
+                        <span class="metric-value my-impl">Mine: ${(yourValue || 0).toFixed(4)}</span>
+                        <span class="metric-value sklearn-impl">Sklearn: ${(sklearnValue || 0).toFixed(4)}</span>
+                        <span class="metric-value ${isBetter ? 'better' : 'worse'}">
+                            ${difference > 0 ? '+' : ''}${(difference || 0).toFixed(4)}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }).filter(Boolean).join('');
 
-            .results-sections section {
-                background: #ffffff;
-                border-radius: 12px;
-                padding: 20px;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-                border: 1px solid #e2e8f0;
-            }
-
-            .results-sections h3 {
-                margin: 0 0 16px 0;
-                color: #1e293b;
-                font-size: 1.1rem;
-                font-weight: 600;
-                border-bottom: 2px solid #f1f5f9;
-                padding-bottom: 8px;
-            }
-
-            /* Charts Grid - Fully Responsive */
-            .charts-grid {
-                display: grid;
-                grid-template-columns: 1fr;
-                gap: 20px;
-                width: 100%;
-            }
-
-            /* Chart Wrapper */
-            .chart-wrapper {
-                background: #f8fafc;
-                border-radius: 8px;
-                padding: 16px;
-                border: 1px solid #e2e8f0;
-                width: 100%;
-                box-sizing: border-box;
-            }
-
-            .chart-title {
-                font-size: 0.95rem;
-                font-weight: 600;
-                color: #475569;
-                margin-bottom: 12px;
-                text-align: center;
-            }
-
-            .chart-container {
-                width: 100%;
-                height: 350px;
-                background: white;
-                border-radius: 6px;
-                border: 1px solid #e2e8f0;
-                position: relative;
-                overflow: hidden;
-            }
-
-            /* Loading and Error States */
-            .chart-loading, .chart-error, .chart-empty {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                height: 350px;
-                color: #64748b;
-                font-size: 0.9rem;
-                background: white;
-                border-radius: 6px;
-                border: 1px solid #e2e8f0;
-            }
-
-            .chart-loading::before { content: "⏳ "; margin-right: 8px; }
-            .chart-error { color: #ef4444; }
-            .chart-error::before { content: "❌ "; margin-right: 8px; }
-            .chart-empty::before { content: "📊 "; margin-right: 8px; }
-
-            /* Responsive Breakpoints */
-            @media (min-width: 640px) {
-                .results-container { padding: 24px; }
-                .results-sections section { padding: 24px; }
-                .chart-container { height: 400px; }
-                .chart-loading, .chart-error, .chart-empty { height: 400px; }
-            }
-
-            @media (min-width: 768px) {
-                .charts-grid { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
-            }
-
-            @media (min-width: 1024px) {
-                .results-container { padding: 32px; }
-                .results-sections section { padding: 32px; }
-                .charts-grid { grid-template-columns: repeat(2, 1fr); }
-            }
-
-            @media (min-width: 1400px) {
-                .charts-grid { grid-template-columns: repeat(3, 1fr); }
-            }
-
-            /* Comparison Metrics */
-            .comparison-metrics {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 16px;
-            }
-
-            .metric-card {
-                background: #f8fafc;
-                border-radius: 8px;
-                padding: 16px;
-                border: 1px solid #e2e8f0;
-            }
-
-            .metric-name {
-                font-size: 0.875rem;
-                color: #64748b;
-                font-weight: 500;
-                margin-bottom: 8px;
-            }
-
-            .metric-values {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 8px;
-                flex-wrap: wrap;
-            }
-
-            .metric-value {
-                font-size: 0.95rem;
-                font-weight: 600;
-                padding: 4px 8px;
-                border-radius: 4px;
-            }
-
-            .my-impl { color: #3b82f6; background: #dbeafe; }
-            .sklearn-impl { color: #f59e0b; background: #fef3c7; }
-            .better { color: #10b981; background: #d1fae5; }
-            .worse { color: #ef4444; background: #fee2e2; }
-
-            /* Training Details */
-            .training-info {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-                gap: 16px;
-            }
-
-            .info-item {
-                background: #f8fafc;
-                border-radius: 8px;
-                padding: 14px;
-                border: 1px solid #e2e8f0;
-            }
-
-            .info-label {
-                font-size: 0.8rem;
-                color: #64748b;
-                font-weight: 500;
-                margin-bottom: 4px;
-                text-transform: uppercase;
-                letter-spacing: 0.025em;
-            }
-
-            .info-value {
-                font-size: 0.95rem;
-                color: #1e293b;
-                font-weight: 600;
-                word-break: break-all;
-            }
-
-            /* Mobile Optimizations */
-            @media (max-width: 640px) {
-                .results-container { padding: 12px; }
-                .results-sections { gap: 20px; }
-                .results-sections section { padding: 16px; }
-                .results-sections h3 { font-size: 1rem; }
-                .chart-container { height: 300px; }
-                .chart-loading, .chart-error, .chart-empty { height: 300px; font-size: 0.85rem; }
-                .metric-values { flex-direction: column; align-items: flex-start; }
-                .training-info { grid-template-columns: 1fr; }
-            }
-        `;
-        document.head.appendChild(style);
+        if (metricsHTML.trim() === '') {
+            container.innerHTML = '<div class="chart-empty">No comparison metrics available for this algorithm type</div>';
+        } else {
+            container.innerHTML = `<div class="comparison-metrics">${metricsHTML}</div>`;
+        }
     }
 
-    async displayVisualizations(result) {
-        console.log('📈 Starting visualization display with result:', result);
+    /**
+     * Display charts with flexible layout system
+     */
+    async displayCharts(result) {
+        console.log('📊 Starting chart display...');
         const chartsGrid = document.getElementById('charts-grid');
         
         if (!result.charts) {
-            console.log('❌ No charts data found in result');
             chartsGrid.innerHTML = '<div class="chart-empty">No visualization data available</div>';
             return;
         }
 
-        console.log('📊 Charts data found:', result.charts);
-        
-        // Ensure Plotly is loaded
-        if (!window.Plotly) {
-            console.log('⏳ Loading Plotly...');
-            chartsGrid.innerHTML = '<div class="chart-loading">Loading visualization library...</div>';
-            await this.loadPlotly();
-        }
-
+        // Clear previous charts
         chartsGrid.innerHTML = '';
         const chartsToRender = [];
 
-        // 1. Loss Curve - Training Progress (Check for iterations and loss arrays)
-        if (result.charts.loss_curve && result.charts.loss_curve.iterations && result.charts.loss_curve.loss) {
-            console.log('✅ Creating loss curve chart with iterations:', result.charts.loss_curve.iterations.length);
-            chartsToRender.push({
-                type: 'loss_curve',
-                data: result.charts.loss_curve,
-                wrapper: this.createChartWrapper('Training Loss Convergence', 'loss-curve-chart')
-            });
-        }
-
-        // 2. Predictions vs Actual - Model Performance (Check for actual and predictions arrays)
-        if (result.charts.scatter_plot && result.charts.scatter_plot.actual) {
-            console.log('✅ Creating predictions vs actual chart with', result.charts.scatter_plot.actual.length, 'data points');
-            chartsToRender.push({
-                type: 'predictions',
-                data: result.charts.scatter_plot,
-                wrapper: this.createChartWrapper('Predictions vs Actual Values', 'predictions-chart')
-            });
-        }
-
-        // 3. Residuals Plot - Model Diagnostic (Check for residuals data)
-        if (result.charts.residuals_plot && result.charts.residuals_plot.your_residuals) {
-            console.log('✅ Creating residuals chart with', result.charts.residuals_plot.your_residuals.length, 'residual points');
-            chartsToRender.push({
-                type: 'residuals',
-                data: result.charts.residuals_plot,
-                wrapper: this.createChartWrapper('Residual Analysis', 'residuals-chart')
-            });
-        }
-
-        // 4. Model Coefficients - Feature Importance (if available)
-        if (result.your_implementation?.coefficients) {
-            console.log('✅ Creating coefficients chart with', result.your_implementation.coefficients.length, 'features');
-            chartsToRender.push({
-                type: 'coefficients',
-                data: result.your_implementation,
-                wrapper: this.createChartWrapper('Feature Importance (Coefficients)', 'coefficients-chart')
-            });
-        }
-
-        // First, add all chart wrappers to the DOM
-        chartsToRender.forEach(chart => {
-            chartsGrid.appendChild(chart.wrapper);
+        // Detect available chart types and create chart configs
+        const chartConfigs = this.detectAndConfigureCharts(result);
+        
+        // Create chart wrappers with appropriate sizing
+        chartConfigs.forEach(config => {
+            const wrapper = this.createFlexibleChartWrapper(config);
+            chartsGrid.appendChild(wrapper);
+            chartsToRender.push(config);
         });
 
-        // Then, render the actual charts (DOM elements now exist)
-        for (const chart of chartsToRender) {
+        // Apply responsive grid layout
+        this.applyResponsiveLayout(chartsGrid, chartConfigs.length);
+
+        // Render charts with proper error handling
+        for (const config of chartsToRender) {
             try {
-                await this.renderChart(chart.type, chart.data);
+                console.log(`📈 Rendering ${config.type} chart...`);
+                await this.renderChart(config.type, config.data);
+                console.log(`✅ Successfully rendered ${config.type} chart`);
             } catch (error) {
-                console.error(`❌ Failed to render ${chart.type} chart:`, error);
+                console.error(`❌ Error rendering ${config.type} chart:`, error);
+                this.displayChartError(config.id, `Error rendering ${config.type} chart: ${error.message}`);
             }
         }
 
-        // Display result message
-        if (chartsToRender.length === 0) {
-            chartsGrid.innerHTML = '<div class="chart-empty">No charts could be generated from the training data</div>';
+        console.log(`📊 Successfully created ${chartsToRender.length} charts`);
+    }
+
+    /**
+     * Detect available charts and configure them properly
+     */
+    detectAndConfigureCharts(result) {
+        console.log('🔍 Chart detection starting with result.charts:', result.charts);
+        const configs = [];
+
+        // 1. Loss Curve - Training Progress
+        if (result.charts.loss_curve && result.charts.loss_curve.iterations && result.charts.loss_curve.loss) {
+            console.log('✅ Detected loss_curve chart');
+            configs.push({
+                type: 'loss_curve',
+                data: result.charts.loss_curve,
+                id: 'loss-curve-chart',
+                title: 'Training Loss Convergence',
+                size: 'medium',
+                priority: 1
+            });
         } else {
-            console.log(`📊 Successfully created ${chartsToRender.length} charts`);
+            console.log('❌ loss_curve not detected:', !!result.charts.loss_curve);
+        }
+
+        // 2. Predictions vs Actual - Model Performance
+        if (result.charts.scatter_plot && result.charts.scatter_plot.actual) {
+            console.log('✅ Detected scatter_plot chart');
+            configs.push({
+                type: 'predictions',
+                data: result.charts.scatter_plot,
+                id: 'predictions-chart',
+                title: 'Predictions vs Actual Values',
+                size: 'medium',
+                priority: 2
+            });
+        } else {
+            console.log('❌ scatter_plot not detected:', !!result.charts.scatter_plot);
+        }
+
+        // 3. Residuals Plot - Model Diagnostic
+        if (result.charts.residuals_plot && result.charts.residuals_plot.your_residuals) {
+            console.log('✅ Detected residuals_plot chart');
+            configs.push({
+                type: 'residuals',
+                data: result.charts.residuals_plot,
+                id: 'residuals-chart',
+                title: 'Residual Analysis',
+                size: 'medium',
+                priority: 3
+            });
+        } else {
+            console.log('❌ residuals_plot not detected:', !!result.charts.residuals_plot, 'has your_residuals:', !!result.charts.residuals_plot?.your_residuals);
+        }
+
+        // 4. Confusion Matrix - Classification Performance
+        if (result.charts.confusion_matrix && result.charts.confusion_matrix.your_matrix) {
+            configs.push({
+                type: 'confusion_matrix',
+                data: result.charts.confusion_matrix,
+                id: 'confusion-matrix-chart',
+                title: 'Confusion Matrix Comparison',
+                size: 'large',
+                priority: 1
+            });
+        }
+
+        // 5. Model Coefficients - Feature Importance
+        if (result.your_implementation?.coefficients) {
+            configs.push({
+                type: 'coefficients',
+                data: result.your_implementation,
+                id: 'coefficients-chart',
+                title: 'Feature Importance (Coefficients)',
+                size: 'medium',
+                priority: 4
+            });
+        }
+
+        // Sort by priority
+        console.log(`🎯 Final chart configs detected: ${configs.length}`, configs.map(c => c.title));
+        return configs.sort((a, b) => a.priority - b.priority);
+    }
+
+    /**
+     * Create flexible chart wrapper with proper sizing
+     */
+    createFlexibleChartWrapper(config) {
+        const wrapper = document.createElement('div');
+        wrapper.className = `chart-wrapper chart-${config.size}`;
+        wrapper.setAttribute('data-chart-type', config.type);
+        
+        wrapper.innerHTML = `
+            <div class="chart-header">
+                <h4 class="chart-title">${config.title}</h4>
+                <div class="chart-controls">
+                    <button class="chart-resize-btn" title="Toggle size">⤢</button>
+                </div>
+            </div>
+            <div id="${config.id}" class="chart-container">
+                <div class="chart-loading">
+                    <div class="loading-spinner"></div>
+                    <span>Preparing chart...</span>
+                </div>
+            </div>
+        `;
+
+        // Add resize functionality
+        const resizeBtn = wrapper.querySelector('.chart-resize-btn');
+        resizeBtn.addEventListener('click', () => this.toggleChartSize(wrapper));
+
+        return wrapper;
+    }
+
+    /**
+     * Apply responsive grid layout based on number of charts
+     */
+    applyResponsiveLayout(container, chartCount) {
+        // Remove existing layout classes
+        container.className = container.className.replace(/layout-\d+/g, '');
+        
+        // Apply appropriate layout class
+        if (chartCount === 1) {
+            container.classList.add('layout-single');
+        } else if (chartCount === 2) {
+            container.classList.add('layout-dual');
+        } else if (chartCount <= 4) {
+            container.classList.add('layout-grid');
+        } else {
+            container.classList.add('layout-masonry');
         }
     }
 
+    /**
+     * Toggle chart size between medium and large
+     */
+    toggleChartSize(wrapper) {
+        if (wrapper.classList.contains('chart-large')) {
+            wrapper.classList.remove('chart-large');
+            wrapper.classList.add('chart-medium');
+        } else {
+            wrapper.classList.remove('chart-medium');
+            wrapper.classList.add('chart-large');
+        }
+        
+        // Trigger chart resize
+        const chartId = wrapper.querySelector('.chart-container').id;
+        setTimeout(() => {
+            if (window.Plotly) {
+                window.Plotly.Plots.resize(chartId);
+            }
+        }, 100);
+    }
+
+    /**
+     * Main chart rendering dispatcher
+     */
     async renderChart(type, data) {
         switch (type) {
             case 'loss_curve':
@@ -380,6 +376,8 @@ class ResultsDisplay {
                 return this.renderPredictionsChart(data);
             case 'residuals':
                 return this.renderResidualsChart(data);
+            case 'confusion_matrix':
+                return this.renderConfusionMatrixChart(data);
             case 'coefficients':
                 return this.renderCoefficientsChart(data);
             default:
@@ -387,66 +385,73 @@ class ResultsDisplay {
         }
     }
 
+    /**
+     * Render loss curve chart
+     */
     async renderLossCurveChart(lossData) {
         const trace = {
-            x: lossData.iterations,
-            y: lossData.loss,
+            x: lossData.iterations || [],
+            y: lossData.loss || [],
             type: 'scatter',
-            mode: 'lines',
-            name: 'Training Loss',
-            line: { color: '#3b82f6', width: 2 }
+            mode: 'lines+markers',
+            line: { color: '#2563eb', width: 2 },
+            marker: { size: 4, color: '#1d4ed8' },
+            name: 'Training Loss'
         };
 
         const layout = {
             title: { text: lossData.title || 'Training Loss Curve', font: { size: 14 } },
             xaxis: { title: lossData.x_label || 'Iteration', titlefont: { size: 12 } },
             yaxis: { title: lossData.y_label || 'Loss', titlefont: { size: 12 } },
-            margin: { l: 50, r: 30, t: 30, b: 50 },
+            margin: { l: 50, r: 30, t: 40, b: 50 },
             font: { size: 11 },
-            showlegend: false
+            showlegend: false,
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'rgba(0,0,0,0)'
         };
 
-        return this.plotChart('loss-curve-chart', [trace], layout);
+        return this.plotChart('loss-curve-chart', [trace], layout, 'line');
     }
 
+    /**
+     * Render predictions vs actual scatter plot
+     */
     async renderPredictionsChart(scatterData) {
         const traces = [];
+        
+        // Your predictions
+        traces.push({
+            x: scatterData.actual || [],
+            y: scatterData.your_predictions || [],
+            mode: 'markers',
+            type: 'scatter',
+            name: 'Your Model',
+            marker: { color: '#2563eb', size: 6, opacity: 0.7 }
+        });
 
-        // My implementation
-        if (scatterData.your_predictions && scatterData.actual) {
+        // Sklearn predictions
+        if (scatterData.sklearn_predictions) {
             traces.push({
-                x: scatterData.actual,
-                y: scatterData.your_predictions,
-                mode: 'markers',
-                type: 'scatter',
-                name: 'My Implementation',
-                marker: { color: '#3b82f6', size: 6, opacity: 0.7 }
-            });
-        }
-
-        // Sklearn comparison
-        if (scatterData.sklearn_predictions && scatterData.actual) {
-            traces.push({
-                x: scatterData.actual,
+                x: scatterData.actual || [],
                 y: scatterData.sklearn_predictions,
                 mode: 'markers',
                 type: 'scatter',
-                name: 'Sklearn',
-                marker: { color: '#f59e0b', size: 6, opacity: 0.7 }
+                name: 'Sklearn Model',
+                marker: { color: '#dc2626', size: 6, opacity: 0.7 }
             });
         }
 
         // Perfect prediction line
-        if (scatterData.actual?.length > 0) {
-            const min = Math.min(...scatterData.actual);
-            const max = Math.max(...scatterData.actual);
+        if (scatterData.actual && scatterData.actual.length > 0) {
+            const minVal = Math.min(...scatterData.actual);
+            const maxVal = Math.max(...scatterData.actual);
             traces.push({
-                x: [min, max],
-                y: [min, max],
+                x: [minVal, maxVal],
+                y: [minVal, maxVal],
                 mode: 'lines',
                 type: 'scatter',
                 name: 'Perfect Prediction',
-                line: { color: '#dc2626', dash: 'dash', width: 2 },
+                line: { color: '#6b7280', dash: 'dash', width: 1 },
                 showlegend: false
             });
         }
@@ -455,35 +460,50 @@ class ResultsDisplay {
             title: { text: scatterData.title || 'Predictions vs Actual', font: { size: 14 } },
             xaxis: { title: scatterData.x_label || 'Actual Values', titlefont: { size: 12 } },
             yaxis: { title: scatterData.y_label || 'Predicted Values', titlefont: { size: 12 } },
-            margin: { l: 50, r: 30, t: 30, b: 50 },
+            margin: { l: 50, r: 30, t: 40, b: 50 },
             font: { size: 11 },
-            showlegend: traces.length > 1
+            showlegend: traces.length > 2,
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'rgba(0,0,0,0)'
         };
 
-        return this.plotChart('predictions-chart', traces, layout);
+        return this.plotChart('predictions-chart', traces, layout, 'scatter');
     }
 
+    /**
+     * Render residuals analysis chart
+     */
     async renderResidualsChart(residualsData) {
         const traces = [];
 
-        // My implementation residuals
-        if (residualsData.your_residuals && residualsData.your_predictions) {
+        // Your residuals
+        traces.push({
+            x: residualsData.your_predictions || [],
+            y: residualsData.your_residuals || [],
+            mode: 'markers',
+            type: 'scatter',
+            name: 'Your Model Residuals',
+            marker: { color: '#2563eb', size: 6, opacity: 0.7 }
+        });
+
+        // Sklearn residuals
+        if (residualsData.sklearn_predictions && residualsData.sklearn_residuals) {
             traces.push({
-                x: residualsData.your_predictions,
-                y: residualsData.your_residuals,
+                x: residualsData.sklearn_predictions,
+                y: residualsData.sklearn_residuals,
                 mode: 'markers',
                 type: 'scatter',
-                name: 'My Implementation',
-                marker: { color: '#3b82f6', size: 5, opacity: 0.7 }
+                name: 'Sklearn Model Residuals',
+                marker: { color: '#dc2626', size: 6, opacity: 0.7 }
             });
         }
 
         // Zero line
-        if (residualsData.your_predictions?.length > 0) {
-            const min = Math.min(...residualsData.your_predictions);
-            const max = Math.max(...residualsData.your_predictions);
+        if (residualsData.your_predictions && residualsData.your_predictions.length > 0) {
+            const minPred = Math.min(...residualsData.your_predictions);
+            const maxPred = Math.max(...residualsData.your_predictions);
             traces.push({
-                x: [min, max],
+                x: [minPred, maxPred],
                 y: [0, 0],
                 mode: 'lines',
                 type: 'scatter',
@@ -497,14 +517,135 @@ class ResultsDisplay {
             title: { text: residualsData.title || 'Residuals Analysis', font: { size: 14 } },
             xaxis: { title: residualsData.x_label || 'Predicted Values', titlefont: { size: 12 } },
             yaxis: { title: residualsData.y_label || 'Residuals', titlefont: { size: 12 } },
-            margin: { l: 50, r: 30, t: 30, b: 50 },
+            margin: { l: 50, r: 30, t: 40, b: 50 },
             font: { size: 11 },
-            showlegend: traces.length > 2
+            showlegend: traces.length > 2,
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'rgba(0,0,0,0)'
         };
 
-        return this.plotChart('residuals-chart', traces, layout);
+        return this.plotChart('residuals-chart', traces, layout, 'scatter');
     }
 
+    /**
+     * Render enhanced confusion matrix chart
+     */
+    async renderConfusionMatrixChart(matrixData) {
+        const yourMatrix = matrixData.your_matrix || [];
+        const sklearnMatrix = matrixData.sklearn_matrix || [];
+        const labels = matrixData.labels || [];
+        
+        // Create side-by-side heatmaps for comparison
+        const yourTrace = {
+            z: yourMatrix,
+            x: labels,
+            y: labels,
+            type: 'heatmap',
+            colorscale: 'Blues',
+            showscale: true,
+            text: yourMatrix.map(row => row.map(val => val.toString())),
+            texttemplate: '%{text}',
+            textfont: { color: 'white', size: 16, family: 'Arial Black' },
+            hoverongaps: false,
+            hovertemplate: 'Predicted: %{x}<br>Actual: %{y}<br>Count: %{z}<extra></extra>',
+            name: 'Your Implementation'
+        };
+
+        const sklearnTrace = {
+            z: sklearnMatrix,
+            x: labels,
+            y: labels,
+            type: 'heatmap',
+            colorscale: 'Greens',
+            showscale: true,
+            text: sklearnMatrix.map(row => row.map(val => val.toString())),
+            texttemplate: '%{text}',
+            textfont: { color: 'white', size: 16, family: 'Arial Black' },
+            hoverongaps: false,
+            hovertemplate: 'Predicted: %{x}<br>Actual: %{y}<br>Count: %{z}<extra></extra>',
+            xaxis: 'x2',
+            yaxis: 'y2',
+            name: 'Sklearn Implementation'
+        };
+
+        const layout = {
+            title: { 
+                text: 'Confusion Matrix Comparison', 
+                font: { size: 16 },
+                x: 0.5,
+                xanchor: 'center'
+            },
+            grid: { 
+                rows: 1, 
+                columns: 2, 
+                pattern: 'independent',
+                xgap: 0.2,
+                ygap: 0.1
+            },
+            annotations: [
+                {
+                    text: '<b>Your Implementation</b>',
+                    x: 0.2,
+                    y: 1.15,
+                    xref: 'paper',
+                    yref: 'paper',
+                    showarrow: false,
+                    font: { size: 14, color: '#1f77b4' },
+                    xanchor: 'center',
+                    yanchor: 'bottom'
+                },
+                {
+                    text: '<b>Sklearn Implementation</b>',
+                    x: 0.8,
+                    y: 1.15,
+                    xref: 'paper',
+                    yref: 'paper',
+                    showarrow: false,
+                    font: { size: 14, color: '#2ca02c' },
+                    xanchor: 'center',
+                    yanchor: 'bottom'
+                }
+            ],
+            xaxis: { 
+                title: 'Predicted Class', 
+                side: 'bottom', 
+                domain: [0, 0.4],
+                titlefont: { size: 12 }
+            },
+            yaxis: { 
+                title: 'Actual Class', 
+                autorange: 'reversed', 
+                domain: [0, 1],
+                titlefont: { size: 12 }
+            },
+            xaxis2: { 
+                title: 'Predicted Class', 
+                side: 'bottom', 
+                domain: [0.6, 1],
+                titlefont: { size: 12 }
+            },
+            yaxis2: { 
+                title: 'Actual Class', 
+                autorange: 'reversed', 
+                domain: [0, 1],
+                titlefont: { size: 12 }
+            },
+            margin: { l: 80, r: 30, t: 100, b: 70 },
+            font: { size: 11 },
+            showlegend: false,
+            height: 400,
+            width: null,
+            autosize: false,
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'rgba(0,0,0,0)'
+        };
+
+        return this.plotChart('confusion-matrix-chart', [yourTrace, sklearnTrace], layout, 'confusion-matrix');
+    }
+
+    /**
+     * Render coefficients bar chart
+     */
     async renderCoefficientsChart(implementation) {
         const coefficients = implementation.coefficients || [];
         const intercept = implementation.intercept || 0;
@@ -526,131 +667,282 @@ class ResultsDisplay {
             title: { text: 'Feature Coefficients', font: { size: 14 } },
             xaxis: { title: 'Parameters', titlefont: { size: 12 } },
             yaxis: { title: 'Coefficient Value', titlefont: { size: 12 } },
-            margin: { l: 50, r: 30, t: 30, b: 80 },
+            margin: { l: 50, r: 30, t: 40, b: 80 },
             font: { size: 11 },
-            showlegend: false
+            showlegend: false,
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'rgba(0,0,0,0)'
         };
 
-        return this.plotChart('coefficients-chart', [trace], layout);
+        return this.plotChart('coefficients-chart', [trace], layout, 'bar');
     }
 
-    createChartWrapper(title, chartId) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'chart-wrapper';
-        wrapper.innerHTML = `
-            <div class="chart-title">${title}</div>
-            <div id="${chartId}" class="chart-container">
-                <div class="chart-loading">Preparing chart...</div>
-            </div>
-        `;
-        return wrapper;
+    /**
+     * Standardize layout to prevent text overlap and ensure consistent spacing
+     */
+    standardizeChartLayout(layout, chartType = 'default') {
+        const standardLayout = {
+            ...layout,
+            // Ensure consistent margins for all charts
+            margin: {
+                l: Math.max(layout.margin?.l || 80, 80),
+                r: Math.max(layout.margin?.r || 50, 50),
+                t: Math.max(layout.margin?.t || 100, 100),
+                b: Math.max(layout.margin?.b || 80, 80),
+                pad: 10
+            },
+            // Prevent text overlap with proper font sizing
+            font: {
+                family: 'Inter, Arial, sans-serif',
+                size: Math.min(layout.font?.size || 12, 14),
+                color: '#374151'
+            },
+            // Title positioning to prevent overlap
+            title: layout.title ? {
+                ...layout.title,
+                x: 0.5,
+                xanchor: 'center',
+                y: layout.title.y || 0.95,
+                yanchor: 'top',
+                pad: { t: 20, b: 20 },
+                font: {
+                    size: Math.min(layout.title.font?.size || 16, 18),
+                    color: '#1f2937'
+                }
+            } : undefined,
+            // Standardize legend positioning
+            legend: layout.legend ? {
+                orientation: 'h',
+                x: 0.5,
+                xanchor: 'center',
+                y: -0.15,
+                yanchor: 'top',
+                bgcolor: 'rgba(255,255,255,0.8)',
+                bordercolor: '#e5e7eb',
+                borderwidth: 1,
+                font: { size: 11 },
+                ...layout.legend
+            } : undefined
+        };
+
+        // Chart-specific adjustments
+        switch (chartType) {
+            case 'confusion-matrix':
+                standardLayout.margin.t = 120; // Extra space for dual titles
+                standardLayout.height = 400;
+                standardLayout.autosize = false;
+                // Ensure annotations don't overlap
+                if (standardLayout.annotations) {
+                    standardLayout.annotations = standardLayout.annotations.map((ann, index) => ({
+                        ...ann,
+                        y: Math.max(ann.y || 1.12, 1.12),
+                        xanchor: 'center',
+                        yanchor: 'bottom',
+                        font: {
+                            ...ann.font,
+                            size: Math.min(ann.font?.size || 14, 14)
+                        }
+                    }));
+                }
+                break;
+
+            case 'comparison':
+                standardLayout.margin.t = 100;
+                standardLayout.margin.b = 100;
+                break;
+
+            case 'scatter':
+            case 'line':
+                standardLayout.margin.l = 90;
+                standardLayout.margin.b = 90;
+                standardLayout.height = 350;
+                standardLayout.autosize = false;
+                break;
+
+            case 'bar':
+                standardLayout.margin.b = 120; // Extra space for category labels
+                standardLayout.height = 300;
+                standardLayout.autosize = false;
+                break;
+        }
+
+        // Ensure axis titles don't overlap with tick labels
+        if (standardLayout.xaxis) {
+            standardLayout.xaxis = {
+                ...standardLayout.xaxis,
+                titlefont: {
+                    size: Math.min(standardLayout.xaxis.titlefont?.size || 12, 12),
+                    ...standardLayout.xaxis.titlefont
+                },
+                tickfont: {
+                    size: Math.min(standardLayout.xaxis.tickfont?.size || 10, 11),
+                    ...standardLayout.xaxis.tickfont
+                },
+                title: standardLayout.xaxis.title ? {
+                    standoff: 20,
+                    ...standardLayout.xaxis.title
+                } : undefined
+            };
+        }
+
+        if (standardLayout.yaxis) {
+            standardLayout.yaxis = {
+                ...standardLayout.yaxis,
+                titlefont: {
+                    size: Math.min(standardLayout.yaxis.titlefont?.size || 12, 12),
+                    ...standardLayout.yaxis.titlefont
+                },
+                tickfont: {
+                    size: Math.min(standardLayout.yaxis.tickfont?.size || 10, 11),
+                    ...standardLayout.yaxis.tickfont
+                },
+                title: standardLayout.yaxis.title ? {
+                    standoff: 20,
+                    ...standardLayout.yaxis.title
+                } : undefined
+            };
+        }
+
+        // Handle dual axis charts (like confusion matrix)
+        if (standardLayout.xaxis2) {
+            standardLayout.xaxis2 = {
+                ...standardLayout.xaxis2,
+                titlefont: {
+                    size: Math.min(standardLayout.xaxis2.titlefont?.size || 12, 12),
+                    ...standardLayout.xaxis2.titlefont
+                },
+                tickfont: {
+                    size: Math.min(standardLayout.xaxis2.tickfont?.size || 10, 11),
+                    ...standardLayout.xaxis2.tickfont
+                }
+            };
+        }
+
+        if (standardLayout.yaxis2) {
+            standardLayout.yaxis2 = {
+                ...standardLayout.yaxis2,
+                titlefont: {
+                    size: Math.min(standardLayout.yaxis2.titlefont?.size || 12, 12),
+                    ...standardLayout.yaxis2.titlefont
+                },
+                tickfont: {
+                    size: Math.min(standardLayout.yaxis2.tickfont?.size || 10, 11),
+                    ...standardLayout.yaxis2.tickfont
+                }
+            };
+        }
+
+        return standardLayout;
     }
 
-    async plotChart(chartId, traces, layout) {
+    /**
+     * Enhanced chart plotting with responsive behavior
+     */
+    async plotChart(chartId, traces, layout, chartType = 'default') {
         try {
-            await window.Plotly.newPlot(chartId, traces, layout, {
+            const container = document.getElementById(chartId);
+            if (!container) {
+                throw new Error(`Chart container ${chartId} not found`);
+            }
+
+            // Clear loading state
+            container.innerHTML = '';
+
+            // Apply layout standardization to prevent text overlap
+            const standardizedLayout = this.standardizeChartLayout(layout, chartType);
+
+            // Enhanced layout with responsive config
+            const responsiveLayout = {
+                ...standardizedLayout,
+                autosize: standardizedLayout.autosize !== false, // Only autosize if not explicitly disabled
+                responsive: true
+            };
+
+            // Plot configuration
+            const config = {
                 responsive: true,
                 displayModeBar: false,
-                staticPlot: false
-            });
+                staticPlot: false,
+                showTips: true
+            };
+
+            await window.Plotly.newPlot(chartId, traces, responsiveLayout, config);
+            
+            // Add resize observer for responsive behavior with height constraints
+            if (window.ResizeObserver) {
+                let isResizing = false;
+                const resizeObserver = new ResizeObserver((entries) => {
+                    if (isResizing) return;
+                    
+                    for (const entry of entries) {
+                        const { width } = entry.contentRect;
+                        if (width > 0) {
+                            isResizing = true;
+                            // Only resize width, keep height fixed
+                            const update = {
+                                width: width - 32, // Account for padding
+                                height: responsiveLayout.height || 350 // Keep original height
+                            };
+                            window.Plotly.relayout(chartId, update).then(() => {
+                                isResizing = false;
+                            });
+                        }
+                    }
+                });
+                resizeObserver.observe(container);
+            }
+
             console.log(`✅ Successfully plotted ${chartId}`);
         } catch (error) {
             console.error(`❌ Error plotting ${chartId}:`, error);
-            const chartContainer = document.getElementById(chartId);
-            if (chartContainer) {
-                chartContainer.innerHTML = '<div class="chart-error">Failed to render chart</div>';
-            }
-        }
-    }
-
-    async loadPlotly() {
-        if (window.Plotly) {
-            this.plotlyLoaded = true;
-            return;
-        }
-
-        try {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.plot.ly/plotly-2.32.0.min.js';
-            
-            await new Promise((resolve, reject) => {
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            });
-
-            this.plotlyLoaded = true;
-            console.log('✅ Plotly loaded successfully');
-        } catch (error) {
-            console.error('❌ Failed to load Plotly:', error);
+            this.displayChartError(chartId, error.message);
             throw error;
         }
     }
 
-    displayComparison(result) {
-        const container = document.getElementById('comparison-content');
-        const yourMetrics = result.your_implementation?.metrics;
-        const sklearnMetrics = result.sklearn_implementation?.metrics;
-
-        if (!yourMetrics || !sklearnMetrics) {
-            container.innerHTML = '<div class="chart-empty">Comparison data not available</div>';
-            return;
-        }
-
-        const metrics = ['r2_score', 'mse', 'mae', 'rmse'];
-        const metricNames = {
-            r2_score: 'R² Score',
-            mse: 'Mean Squared Error',
-            mae: 'Mean Absolute Error',
-            rmse: 'Root Mean Squared Error'
-        };
-
-        const metricsHTML = metrics.map(metric => {
-            const yourValue = yourMetrics[metric];
-            const sklearnValue = sklearnMetrics[metric];
-            
-            if (yourValue === undefined || sklearnValue === undefined) return '';
-
-            const difference = yourValue - sklearnValue;
-            const isR2 = metric === 'r2_score';
-            const isBetter = isR2 ? difference > 0 : difference < 0;
-            
-            return `
-                <div class="metric-card">
-                    <div class="metric-name">${metricNames[metric]}</div>
-                    <div class="metric-values">
-                        <span class="metric-value my-impl">Mine: ${yourValue.toFixed(4)}</span>
-                        <span class="metric-value sklearn-impl">Sklearn: ${sklearnValue.toFixed(4)}</span>
-                        <span class="metric-value ${isBetter ? 'better' : 'worse'}">
-                            ${difference > 0 ? '+' : ''}${difference.toFixed(4)}
-                        </span>
+    /**
+     * Display chart error with helpful message
+     */
+    displayChartError(chartId, message) {
+        const container = document.getElementById(chartId);
+        if (container) {
+            container.innerHTML = `
+                <div class="chart-error">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-message">
+                        <h4>Chart Error</h4>
+                        <p>${message}</p>
                     </div>
                 </div>
             `;
-        }).filter(Boolean).join('');
-
-        container.innerHTML = `<div class="comparison-metrics">${metricsHTML}</div>`;
+        }
     }
 
+    /**
+     * Display training details
+     */
     displayTrainingDetails(result) {
         const container = document.getElementById('training-details');
-        const details = [
-            { label: 'Algorithm', value: result.algorithm_id || 'Unknown' },
-            { label: 'Dataset', value: result.dataset?.name || 'Unknown' },
-            { label: 'Training Duration', value: `${(result.total_duration || 0).toFixed(2)}s` },
-            { label: 'Samples', value: result.dataset?.n_samples || 'Unknown' },
-            { label: 'Features', value: result.dataset?.n_features || 'Unknown' },
-            { label: 'Timestamp', value: new Date(result.timestamp || Date.now()).toLocaleString() }
-        ];
+        
+        const details = {
+            'Algorithm': result.algorithm_id,
+            'Dataset': result.dataset?.name || 'Unknown',
+            'Training Duration': `${(result.total_duration || 0).toFixed(2)}s`,
+            'Samples': result.dataset?.n_samples || 'Unknown',
+            'Features': result.dataset?.n_features || 'Unknown',
+            'Timestamp': result.timestamp ? new Date(result.timestamp).toLocaleString() : 'Unknown'
+        };
 
-        const hyperparams = result.hyperparameters || {};
-        Object.entries(hyperparams).forEach(([key, value]) => {
-            details.push({ label: key, value: String(value) });
-        });
+        // Add hyperparameters
+        if (result.hyperparameters) {
+            Object.entries(result.hyperparameters).forEach(([key, value]) => {
+                details[key] = value;
+            });
+        }
 
-        const detailsHTML = details.map(({ label, value }) => `
+        const detailsHTML = Object.entries(details).map(([key, value]) => `
             <div class="info-item">
-                <div class="info-label">${label}</div>
+                <div class="info-label">${key}</div>
                 <div class="info-value">${value}</div>
             </div>
         `).join('');
@@ -658,10 +950,14 @@ class ResultsDisplay {
         container.innerHTML = `<div class="training-info">${detailsHTML}</div>`;
     }
 
+    /**
+     * Display error message
+     */
     displayError(error) {
         this.container.innerHTML = `
-            <div style="text-align: center; padding: 40px; color: #ef4444;">
-                <h3>❌ Training Failed</h3>
+            <div class="error-container">
+                <div class="error-icon">❌</div>
+                <h3>Training Error</h3>
                 <p>${error}</p>
             </div>
         `;

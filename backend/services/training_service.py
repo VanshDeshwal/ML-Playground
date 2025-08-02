@@ -24,29 +24,40 @@ class DatasetService:
     """Handles loading and preprocessing of datasets"""
     
     DATASETS = {
+        # Regression Datasets
         "diabetes": {
             "loader": load_diabetes,
             "type": "regression",
-            "description": "Diabetes progression prediction",
+            "description": "Diabetes progression prediction (442 samples, 10 features)",
             "target_name": "progression"
         },
+        
+        # Binary Classification Datasets
+        "breast_cancer": {
+            "loader": load_breast_cancer,
+            "type": "binary_classification",
+            "description": "Breast cancer diagnosis (569 samples, 30 features)",
+            "target_name": "diagnosis"
+        },
+        "iris_binary": {
+            "loader": "iris_binary",  # Special case - handled in load_dataset
+            "type": "binary_classification",
+            "description": "Iris binary classification - Setosa vs Others (150 samples, 4 features)",
+            "target_name": "is_setosa"
+        },
+        
+        # Multi-class Classification Datasets
         "iris": {
             "loader": load_iris,
-            "type": "classification", 
-            "description": "Iris species classification",
+            "type": "multiclass_classification", 
+            "description": "Iris species classification (150 samples, 4 features, 3 classes)",
             "target_name": "species"
         },
         "wine": {
             "loader": load_wine,
-            "type": "classification",
-            "description": "Wine quality classification", 
+            "type": "multiclass_classification",
+            "description": "Wine classification (178 samples, 13 features, 3 classes)", 
             "target_name": "wine_class"
-        },
-        "breast_cancer": {
-            "loader": load_breast_cancer,
-            "type": "classification",
-            "description": "Breast cancer diagnosis",
-            "target_name": "diagnosis"
         }
     }
     
@@ -62,9 +73,18 @@ class DatasetService:
             raise ValueError(f"Unknown dataset: {dataset_name}. Available: {list(cls.DATASETS.keys())}")
         
         dataset_config = cls.DATASETS[dataset_name]
-        data = dataset_config["loader"](return_X_y=False)
         
-        X, y = data.data, data.target
+        # Handle special cases
+        if dataset_name == "iris_binary":
+            # Load iris and convert to binary (Setosa vs Others)
+            data = load_iris(return_X_y=False)
+            X, y = data.data, data.target
+            y = (y == 0).astype(int)  # 1 for Setosa (class 0), 0 for others
+        else:
+            # Standard loading
+            loader = dataset_config["loader"]
+            data = loader(return_X_y=False)
+            X, y = data.data, data.target
         
         # Split the data
         X_train, X_test, y_train, y_test = train_test_split(
@@ -76,7 +96,7 @@ class DatasetService:
             name=dataset_name,
             n_samples=X.shape[0],
             n_features=X.shape[1],
-            feature_names=getattr(data, 'feature_names', [f"feature_{i}" for i in range(X.shape[1])]),
+            feature_names=getattr(data, 'feature_names', [f"feature_{i}" for i in range(X.shape[1])]) if 'data' in locals() else [f"feature_{i}" for i in range(X.shape[1])],
             target_name=dataset_config["target_name"],
             train_size=X_train.shape[0],
             test_size=X_test.shape[0],
@@ -84,6 +104,92 @@ class DatasetService:
         )
         
         return X_train, X_test, y_train, y_test, dataset_info
+
+class AlgorithmTypeDetector:
+    """Detects algorithm type and suggests best dataset"""
+    
+    # Algorithm patterns for different types
+    REGRESSION_PATTERNS = [
+        'linear', 'ridge', 'lasso', 'polynomial', 'support_vector_regression', 
+        'svr', 'random_forest_regressor', 'gradient_boosting_regressor'
+    ]
+    
+    BINARY_CLASSIFICATION_PATTERNS = [
+        'logistic', 'svm', 'support_vector_machine', 'naive_bayes', 
+        'binary_classifier', 'perceptron'
+    ]
+    
+    MULTICLASS_CLASSIFICATION_PATTERNS = [
+        'decision_tree', 'random_forest', 'gradient_boosting', 'knn', 
+        'k_nearest_neighbors', 'neural_network', 'mlp'
+    ]
+    
+    # Best datasets for each algorithm type
+    BEST_DATASETS = {
+        'regression': 'diabetes',
+        'binary_classification': 'breast_cancer', 
+        'multiclass_classification': 'iris'
+    }
+    
+    @classmethod
+    def detect_algorithm_type(cls, algorithm_id: str, algorithm_name: str = None) -> str:
+        """
+        Detect the type of algorithm based on its ID and name
+        
+        Returns: 'regression', 'binary_classification', or 'multiclass_classification'
+        """
+        algorithm_text = f"{algorithm_id} {algorithm_name or ''}".lower()
+        
+        # Check for binary classification patterns first (more specific)
+        for pattern in cls.BINARY_CLASSIFICATION_PATTERNS:
+            if pattern in algorithm_text:
+                return 'binary_classification'
+        
+        # Check for regression patterns
+        for pattern in cls.REGRESSION_PATTERNS:
+            if pattern in algorithm_text:
+                return 'regression'
+        
+        # Check for multiclass classification patterns
+        for pattern in cls.MULTICLASS_CLASSIFICATION_PATTERNS:
+            if pattern in algorithm_text:
+                return 'multiclass_classification'
+        
+        # Default fallback based on common naming
+        if 'regression' in algorithm_text:
+            return 'regression'
+        elif 'classification' in algorithm_text or 'classifier' in algorithm_text:
+            return 'multiclass_classification'
+        
+        # Final fallback - assume regression for unknown
+        return 'regression'
+    
+    @classmethod
+    def get_best_dataset(cls, algorithm_id: str, algorithm_name: str = None) -> str:
+        """Get the best dataset for an algorithm based on its type"""
+        algorithm_type = cls.detect_algorithm_type(algorithm_id, algorithm_name)
+        return cls.BEST_DATASETS.get(algorithm_type, 'diabetes')
+    
+    @classmethod
+    def get_compatible_datasets(cls, algorithm_id: str, algorithm_name: str = None) -> list:
+        """Get all compatible datasets for an algorithm"""
+        algorithm_type = cls.detect_algorithm_type(algorithm_id, algorithm_name)
+        
+        all_datasets = DatasetService.DATASETS
+        compatible = []
+        
+        for dataset_name, config in all_datasets.items():
+            dataset_type = config['type']
+            
+            # Check compatibility
+            if algorithm_type == 'regression' and dataset_type == 'regression':
+                compatible.append(dataset_name)
+            elif algorithm_type == 'binary_classification' and dataset_type == 'binary_classification':
+                compatible.append(dataset_name)
+            elif algorithm_type == 'multiclass_classification' and dataset_type in ['binary_classification', 'multiclass_classification']:
+                compatible.append(dataset_name)
+        
+        return compatible
 
 class ChartDataGenerator:
     """Generates data for various chart types based on algorithm results"""
@@ -242,7 +348,7 @@ class TrainingService:
         self,
         algorithm_id: str,
         hyperparameters: Dict[str, Any],
-        dataset_name: str = "diabetes"
+        dataset_name: str = None
     ) -> TrainingResult:
         """
         Train algorithm with sklearn comparison and generate comprehensive results
@@ -251,6 +357,11 @@ class TrainingService:
         timestamp = datetime.now().isoformat()
         
         try:
+            # Auto-detect best dataset if none specified
+            if dataset_name is None:
+                dataset_name = AlgorithmTypeDetector.get_best_dataset(algorithm_id)
+                logger.info(f"Auto-selected dataset '{dataset_name}' for algorithm '{algorithm_id}'")
+            
             # Extract test_size from hyperparameters
             test_size = hyperparameters.pop('test_size', 0.2)
             
@@ -259,8 +370,9 @@ class TrainingService:
                 dataset_name, test_size=test_size
             )
             
-            # Get algorithm type
-            algorithm_type = SklearnMapper.get_algorithm_type(algorithm_id)
+            # Get algorithm type using our improved detection
+            algorithm_type = AlgorithmTypeDetector.detect_algorithm_type(algorithm_id)
+            logger.info(f"Detected algorithm type: {algorithm_type}")
             
             # Train your implementation
             your_result = await self._train_your_algorithm(
@@ -533,7 +645,7 @@ class TrainingService:
             return self.chart_generator.generate_regression_charts(
                 X_test, y_test, your_predictions, sklearn_predictions, your_model, dataset_info
             )
-        elif algorithm_type == "classification":
+        elif algorithm_type in ["binary_classification", "multiclass_classification"]:
             return self.chart_generator.generate_classification_charts(
                 X_test, y_test, your_predictions, sklearn_predictions, dataset_info
             )

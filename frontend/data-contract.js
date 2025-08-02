@@ -48,6 +48,19 @@ class DataContractValidator {
                     y_label: 'string',
                     title: 'string'
                 },
+                confusion_matrix: {
+                    your_matrix: 'array',
+                    sklearn_matrix: 'array', 
+                    labels: 'array'
+                },
+                decision_boundary: {
+                    x_data: 'array',
+                    y_data: 'array',
+                    labels: 'array',
+                    x_label: 'string',
+                    y_label: 'string',
+                    title: 'string'
+                },
                 coefficients_data: {
                     coefficients: 'array',
                     intercept: 'number'

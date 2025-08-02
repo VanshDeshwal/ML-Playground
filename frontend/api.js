@@ -85,11 +85,17 @@ class APIService {
         }
     }
 
-    async trainAlgorithm(algorithmName, hyperparameters = {}, dataset = "diabetes") {
+    async trainAlgorithm(algorithmName, hyperparameters = {}, dataset = null) {
         try {
             const requestBody = hyperparameters;
+            
+            // Build URL with dataset parameter only if specified
+            let url = `${this.baseURL}/training/${algorithmName}`;
+            if (dataset) {
+                url += `?dataset=${dataset}`;
+            }
 
-            const response = await fetch(`${this.baseURL}/training/${algorithmName}?dataset=${dataset}`, {
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

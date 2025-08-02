@@ -40,6 +40,8 @@ class LinearRegressionScratch:
     y_pred=np.dot(X, self.beta)
     return y_pred
   
+# === SNIPPET-END: LinearRegressionScratch ===
+  
   # code to expose coefficients(better for website)
   @property
   def intercept_(self):
@@ -48,4 +50,3 @@ class LinearRegressionScratch:
   @property  
   def coef_(self):
     return self.beta[1:] if self.beta is not None else None
-# === SNIPPET-END: LinearRegressionScratch ===
